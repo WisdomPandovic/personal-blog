@@ -246,17 +246,16 @@ router.post('/admin/signup', async (req, res) => {
     }
   });
 
-router.put('/users/:id', async (req, res) => {
+router.patch('/users/:id', async (req, res) => {
     try {
         let { id } = req.params;
         let user = await User.findById(id);
-        let new_data = {};
 
         if (!user) return res.status(404).json({ msg: "User does not exist", code: 404 });
 
-        new_data = { ...user._doc, ...req.body };
+        // Update only the fields provided in the request body
+        Object.assign(user, req.body);
 
-        user.overwrite(new_data);
         await user.save();
 
         res.json(user);

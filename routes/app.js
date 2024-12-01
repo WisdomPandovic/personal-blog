@@ -28,6 +28,8 @@ console.log('Loading routes...');
 require('./routes/user')(router);
 require('../routes/post')(router);
 require('../routes/category')(router);
+require('../routes/contact')(router);
+require('../routes/subscription')(router);
 console.log('Routes loaded');
 
 // Use the router

@@ -173,18 +173,29 @@ router.get('/users', async (req, res) => {
     }
 });
 
+const mongoose = require('mongoose');
+
 router.get('/users/:id', async (req, res) => {
     try {
-        let { id } = req.params;
-        let user = await User.findById(id);
+        const { id } = req.params;
 
-        if (!user) return res.status(404).json({ msg: "User does not exist", code: 404 });
+        // Check if `id` is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ msg: "Invalid user ID", code: 400 });
+        }
+
+        const user = await User.findById(id);
+
+        if (!user) {
+            return res.status(404).json({ msg: "User does not exist", code: 404 });
+        }
 
         res.json(user);
     } catch (err) {
-        res.status(500).send(err.message);
+        res.status(500).json({ msg: "Server error", code: 500, error: err.message });
     }
 });
+
 
 router.post("/users", async (req, res) => {
     try {
@@ -298,10 +309,13 @@ router.post('/login', async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         console.log("Password comparison result:", isPasswordValid);
 
+        const payload = { userId: user._id, role: user.role };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }); 
+
         if (isPasswordValid) {
             // Passwords match, handle successful login
             // Optionally, you can include user details in the response
-            res.json({ success: true, msg: 'Login successful', user });
+            res.json({ success: true, msg: 'Login successful', user, token });
         } else {
             // Passwords don't match, handle unsuccessful login
             console.log("Password is invalid");

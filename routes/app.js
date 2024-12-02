@@ -30,6 +30,7 @@ require('../routes/post')(router);
 require('../routes/category')(router);
 require('../routes/contact')(router);
 require('../routes/subscription')(router);
+require('../routes/search')(router);
 console.log('Routes loaded');
 
 // Use the router

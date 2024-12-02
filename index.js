@@ -44,6 +44,7 @@ const postRoutes = require('./routes/routes/post');
 const categoryRoutes = require('./routes/routes/category'); 
 const contactRoutes = require('./routes/routes/contact'); 
 const subscriptionRoutes = require('./routes/routes/subscription'); 
+const searchRoutes = require('./routes/routes/search'); 
 
 const app = express();
 
@@ -91,6 +92,7 @@ app.use('/api', postRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', contactRoutes);
 app.use('/api', subscriptionRoutes);
+app.use('/api', searchRoutes);
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {

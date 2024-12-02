@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../../models/user");
 const Post = require("../../models/post");
-const Product = require("../../models/Product");
+const Contact = require("../../models/contact");
 
 // Universal search endpoint
 router.get("/search", async (req, res) => {
@@ -13,13 +13,13 @@ router.get("/search", async (req, res) => {
     // Query multiple collections/models
     const users = await User.find({ username: searchRegex });
     const posts = await Post.find({ title: searchRegex });
-    const products = await Product.find({ name: searchRegex });
+    const contacts = await Contact.find({ name: searchRegex });
 
     // Combine results
     const results = {
       users,
       posts,
-      products,
+      contacts,
     };
 
     res.json(results);

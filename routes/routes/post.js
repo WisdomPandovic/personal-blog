@@ -697,13 +697,13 @@ const postimage = multer({storage: storage});
 	
 			// Ensure we have the files and handle them
 			let imagePath = "";
-			let videoPaths = [];
+			let videoPaths = "";
 	
 			if (req.files && req.files.length > 0) {
 				req.files.forEach(file => {
 					if (file.fieldname === 'image') {
 						imagePath = FILE_PATH + file.filename;
-					} else if (file.fieldname === 'video[]' && file.mimetype.startsWith('video/')) {
+					} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
 						videoPaths.push(FILE_PATH + file.filename);
 					}
 				});

@@ -802,7 +802,7 @@ const postimage = multer({storage: storage});
 	
 			if (req.files && req.files.length > 0) {
 				req.files.forEach(file => {
-					if (file.fieldname === 'image') {
+					if (file.fieldname === 'image[]') {
 						imagePaths.push(FILE_PATH + file.filename); // Store multiple images
 					} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
 						if (videoPath) {

@@ -644,6 +644,107 @@ const postimage = multer({storage: storage});
 	// 	}
 	// });
 	
+	// router.post('/post', postimage.any(), async function (req, res) {
+	// 	try {
+	// 		console.log('Received request body:', req.body);
+	// 		console.log('Received files:', req.files);
+	
+	// 		const { title, header, location, content, price, category, user } = req.body;
+	
+	// 		// Ensure all required fields are provided
+	// 		if (!title) {
+	// 			return res.status(400).json({ message: "Title is required." });
+	// 		}
+	// 		if (!header) {
+	// 			return res.status(400).json({ message: "Header is required." });
+	// 		}
+	// 		if (!content) {
+	// 			return res.status(400).json({ message: "Content is required." });
+	// 		}
+	// 		if (!price) {
+	// 			return res.status(400).json({ message: "Price is required." });
+	// 		}
+	// 		if (!category) {
+	// 			return res.status(400).json({ message: "Category is required." });
+	// 		}
+	// 		if (!user) {
+	// 			return res.status(400).json({ message: "User is required." });
+	// 		}
+	
+	// 		// Validate user ID
+	// 		if (!ObjectId.isValid(user)) {
+	// 			return res.status(400).json({ msg: 'Invalid user ID' });
+	// 		}
+	
+	// 		const foundUser = await User.findById(user);
+	// 		if (!foundUser) {
+	// 			return res.status(404).json({ msg: 'User not found' });
+	// 		}
+	
+	// 		if (foundUser.role !== 'admin') {
+	// 			return res.status(403).json({ msg: 'Only admins can create posts' });
+	// 		}
+	
+	// 		// Validate category
+	// 		if (!ObjectId.isValid(category)) {
+	// 			return res.status(400).json({ msg: 'Invalid category ID' });
+	// 		}
+	
+	// 		const foundCategory = await Category.findById(category);
+	// 		if (!foundCategory) {
+	// 			return res.status(404).json({ msg: 'Category not found' });
+	// 		}
+	
+	// 		// Ensure we have the files and handle them
+	// 		let imagePath = "";
+	// 		let videoPaths = "";
+	
+	// 		if (req.files && req.files.length > 0) {
+	// 			req.files.forEach(file => {
+	// 				if (file.fieldname === 'image') {
+	// 					imagePath = FILE_PATH + file.filename;
+	// 				} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
+	// 					videoPaths.push(FILE_PATH + file.filename);
+	// 				}
+	// 			});
+	// 		}
+	
+	// 		if (!imagePath) {
+	// 			return res.status(400).json({ msg: 'Image is required.' });
+	// 		}
+	// 		if (videoPaths.length === 0) {
+	// 			return res.status(400).json({ msg: 'At least one video is required.' });
+	// 		}
+	
+	// 		// Create a new post
+	// 		const newPost = new Post({
+	// 			title,
+	// 			image: imagePath,
+	// 			videos: videoPaths, // Store multiple videos
+	// 			header,
+	// 			location,
+	// 			content,
+	// 			price,
+	// 			category,
+	// 			user,
+	// 		});
+	
+	// 		await newPost.save();
+	
+	// 		// Update category with the new post ID
+	// 		await Category.findByIdAndUpdate(category, { $push: { posts: newPost._id } });
+	
+	// 		res.status(200).json({
+	// 			success: true,
+	// 			message: 'Post created successfully',
+	// 			data: newPost,
+	// 		});
+	// 	} catch (err) {
+	// 		console.error('Error creating post:', err);
+	// 		res.status(500).json({ success: false, message: err.message });
+	// 	}
+	// });
+	
 	router.post('/post', postimage.any(), async function (req, res) {
 		try {
 			console.log('Received request body:', req.body);
@@ -696,31 +797,34 @@ const postimage = multer({storage: storage});
 			}
 	
 			// Ensure we have the files and handle them
-			let imagePath = "";
-			let videoPaths = "";
+			let imagePaths = [];  // Store multiple images
+			let videoPath = "";   // Store one video
 	
 			if (req.files && req.files.length > 0) {
 				req.files.forEach(file => {
 					if (file.fieldname === 'image') {
-						imagePath = FILE_PATH + file.filename;
+						imagePaths.push(FILE_PATH + file.filename); // Store multiple images
 					} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
-						videoPaths.push(FILE_PATH + file.filename);
+						if (videoPath) {
+							return res.status(400).json({ msg: 'Only one video is allowed.' }); // Allow only one video
+						}
+						videoPath = FILE_PATH + file.filename; // Store one video
 					}
 				});
 			}
 	
-			if (!imagePath) {
-				return res.status(400).json({ msg: 'Image is required.' });
+			if (imagePaths.length === 0) {
+				return res.status(400).json({ msg: 'At least one image is required.' });
 			}
-			if (videoPaths.length === 0) {
+			if (!videoPath) {
 				return res.status(400).json({ msg: 'At least one video is required.' });
 			}
 	
 			// Create a new post
 			const newPost = new Post({
 				title,
-				image: imagePath,
-				videos: videoPaths, // Store multiple videos
+				images: imagePaths,   // Store multiple images
+				video: videoPath,     // Store one video
 				header,
 				location,
 				content,
@@ -744,6 +848,5 @@ const postimage = multer({storage: storage});
 			res.status(500).json({ success: false, message: err.message });
 		}
 	});
-	
 	
 module.exports = router;

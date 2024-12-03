@@ -197,5 +197,10 @@ router.post('/payment/callback', async (req, res) => {
   }
 });
 
+router.get('/payment/callback', (req, res) => {
+    res.send("Webhook is accessible!");
+  });
+  
+
 module.exports = router;
 

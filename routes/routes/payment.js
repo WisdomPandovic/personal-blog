@@ -103,10 +103,10 @@ require('dotenv').config();
 
 // POST route to initialize Paystack payment
 router.post('/payment', async (req, res) => {
-  const { amount, email } = req.body;
+  const { amount, email, postId } = req.body;
 
   // Validate the request
-  if (!amount || !email) {
+  if (!amount || !email || !postId) {
     return res.status(400).json({ error: 'Amount and email are required' });
   }
 
@@ -118,6 +118,7 @@ router.post('/payment', async (req, res) => {
       'https://api.paystack.co/transaction/initialize',
       {
         email,
+        postId,
         amount: amount * 100,  // Paystack expects the amount in kobo (100 kobo = 1 Naira)
       },
       {

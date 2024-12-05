@@ -431,218 +431,6 @@ const postimage = multer({storage: storage});
 		  res.status(500).send(err.message);
 		}
 	});
-
-	// router.post('/post', postimage.any(), async function(req, res) {
-	// 	try {
-	// 	  console.log('received request', req.body);
-	// 	  console.log('received files', req.files);
-	  
-	// 	  const { title, description, tag, user } = req.body;
-
-	// 	  // Validate user ID
-	// 	  if (!ObjectId.isValid(user)) {
-	// 		console.error('Invalid user ID');
-	// 		return res.status(400).json({ msg: 'Invalid user ID' });
-	// 	  }
-	  
-	// 	  // Validate or find tag by name
-	// 	  let existingTag = await Tag.findOne({ name: tag });
-	  
-	// 	  if (!existingTag) {
-	// 		console.log('Tag not found, creating new tag...');
-	  
-	// 		// Create a new tag if it doesn't exist
-	// 		existingTag = new Tag({ name: tag });
-	  
-	// 		// Save the new tag to the database
-	// 		await existingTag.save();
-	// 	  }
-	  
-	// 	  let post = new Post({
-	// 		title,
-	// 		description,
-	// 		tag: existingTag._id,
-	// 		user,
-	// 		image: FILE_PATH + req.files[0].filename,
-	// 		video: FILE_PATH + req.files[0].filename,
-	// 		views: 0
-	// 	  });
-	  
-	// 	  console.log('post created:', post);
-	// 	  await post.save();
-	  
-	// 	  // Update the tag with the new post ID
-	// 	  await Tag.findByIdAndUpdate(existingTag._id, { $push: { post: post._id } });
-	  
-	// 	  res.json({ msg: "post created", code: 200 });
-	// 	} catch (err) {
-	// 	  console.error('Error creating post:', err);
-	// 	  res.status(500).send(err.message);
-	// 	}
-	//   });	  
-  
-
-
-	
-	// router.post('/post', postimage.any(), async function(req, res) {
-	// 	try {
-	// 		console.log('received request', req.body);
-	// 		console.log('received files', req.files);
-	
-	// 		const { title, description, tag, user } = req.body;
-	
-	// 		// Validate user ID
-	// 		if (!ObjectId.isValid(user)) {
-	// 			console.error('Invalid user ID');
-	// 			return res.status(400).json({ msg: 'Invalid user ID' });
-	// 		}
-	
-	// 		// Check if user is an admin
-	// 		const foundUser = await User.findById(user);
-	// 		if (!foundUser) {
-	// 			return res.status(404).json({ msg: 'User not found' });
-	// 		}
-	
-	// 		// Check if the user is an admin
-	// 		if (foundUser.role !== 'admin') {
-	// 			return res.status(403).json({ msg: 'Only admins can create posts' });
-	// 		}
-	
-	// 		// Validate or find tag by name
-	// 		let existingTag = await Tag.findOne({ name: tag });
-	
-	// 		if (!existingTag) {
-	// 			console.log('Tag not found, creating new tag...');
-				
-	// 			// Create a new tag if it doesn't exist
-	// 			existingTag = new Tag({ name: tag });
-				
-	// 			// Save the new tag to the database
-	// 			await existingTag.save();
-	// 		}
-	
-	// 		// Create a new post
-	// 		let post = new Post({
-	// 			title,
-	// 			description,
-	// 			category: existingTag._id,
-	// 			user,
-	// 			image: FILE_PATH + req.files[0].filename, // Assuming you are storing the image
-	// 			video: FILE_PATH + req.files[0].filename, // Assuming you're storing a video as well
-	// 			views: 0,
-	// 		});
-	
-	// 		console.log('Post created:', post);
-	// 		await post.save();
-	
-	// 		// Update the tag with the new post ID
-	// 		await Tag.findByIdAndUpdate(existingTag._id, { $push: { post: post._id } });
-	
-	// 		res.json({ msg: 'Post created', code: 200 });
-	// 	} catch (err) {
-	// 		console.error('Error creating post:', err);
-	// 		res.status(500).send(err.message);
-	// 	}
-	// });
-
-	// router.post('/post', postimage.any(), async function (req, res) {
-	// 	try {
-	// 		console.log('Received request body:', req.body);
-	// 		console.log('Received files:', req.files);
-	
-	// 		const { title, header, location, content, price, category, user } = req.body;
-	
-	// 		// Ensure all required fields are provided
-	// 		if (!title) {
-	// 			return res.status(400).json({ message: "Title is required." });
-	// 		}
-	// 		if (!header) {
-	// 			return res.status(400).json({ message: "Header is required." });
-	// 		}
-	// 		if (!content) {
-	// 			return res.status(400).json({ message: "Content is required." });
-	// 		}
-	// 		if (!price) {
-	// 			return res.status(400).json({ message: "Price is required." });
-	// 		}
-	// 		if (!category) {
-	// 			return res.status(400).json({ message: "Category is required." });
-	// 		}
-	// 		if (!user) {
-	// 			return res.status(400).json({ message: "User is required." });
-	// 		}
-			
-	
-	// 		// Validate user ID
-	// 		if (!ObjectId.isValid(user)) {
-	// 			return res.status(400).json({ msg: 'Invalid user ID' });
-	// 		}
-	
-	// 		const foundUser = await User.findById(user);
-	// 		if (!foundUser) {
-	// 			return res.status(404).json({ msg: 'User not found' });
-	// 		}
-	
-	// 		if (foundUser.role !== 'admin') {
-	// 			return res.status(403).json({ msg: 'Only admins can create posts' });
-	// 		}
-	
-	// 		// Validate category
-	// 		if (!ObjectId.isValid(category)) {
-	// 			return res.status(400).json({ msg: 'Invalid category ID' });
-	// 		}
-	
-	// 		const foundCategory = await Category.findById(category);
-	// 		if (!foundCategory) {
-	// 			return res.status(404).json({ msg: 'Category not found' });
-	// 		}
-	
-			
-	
-	// 		let imagePath = '';
-	// 		let videoPath = [];
-	
-	// 		// Process the files
-	// 		req.files.forEach((file) => {
-	// 			if (file.fieldname === 'image' && file.mimetype.startsWith('image/')) {
-	// 				imagePath = FILE_PATH + file.filename;
-	// 			} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
-	// 				videoPath = FILE_PATH + file.filename;
-	// 			}
-	// 		});
-	
-	// 		if (!imagePath || !videoPath) {
-	// 			return res.status(400).json({ msg: 'Both image and video files are required.' });
-	// 		}
-	
-	// 		// Create a new post
-	// 		const newPost = new Post({
-	// 			title,
-	// 			image: imagePath,
-	// 			video: videoPath,
-	// 			header,
-	// 			location,
-	// 			content,
-	// 			price,
-	// 			category,
-	// 			user,
-	// 		});
-	
-	// 		await newPost.save();
-	
-	// 		// Update category with the new post ID
-	// 		await Category.findByIdAndUpdate(category, { $push: { posts: newPost._id } });
-	
-	// 		res.status(200).json({
-	// 			success: true,
-	// 			message: 'Post created successfully',
-	// 			data: newPost,
-	// 		});
-	// 	} catch (err) {
-	// 		console.error('Error creating post:', err);
-	// 		res.status(500).json({ success: false, message: err.message });
-	// 	}
-	// });
 	
 	// router.post('/post', postimage.any(), async function (req, res) {
 	// 	try {
@@ -696,31 +484,34 @@ const postimage = multer({storage: storage});
 	// 		}
 	
 	// 		// Ensure we have the files and handle them
-	// 		let imagePath = "";
-	// 		let videoPaths = "";
+	// 		let imagePaths = [];  // Store multiple images
+	// 		let videoPath = "";   // Store one video
 	
 	// 		if (req.files && req.files.length > 0) {
 	// 			req.files.forEach(file => {
-	// 				if (file.fieldname === 'image') {
-	// 					imagePath = FILE_PATH + file.filename;
+	// 				if (file.fieldname === 'image[]') {
+	// 					imagePaths.push(FILE_PATH + file.filename); // Store multiple images
 	// 				} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
-	// 					videoPaths.push(FILE_PATH + file.filename);
+	// 					if (videoPath) {
+	// 						return res.status(400).json({ msg: 'Only one video is allowed.' }); // Allow only one video
+	// 					}
+	// 					videoPath = FILE_PATH + file.filename; // Store one video
 	// 				}
 	// 			});
 	// 		}
 	
-	// 		if (!imagePath) {
-	// 			return res.status(400).json({ msg: 'Image is required.' });
+	// 		if (imagePaths.length === 0) {
+	// 			return res.status(400).json({ msg: 'At least one image is required.' });
 	// 		}
-	// 		if (videoPaths.length === 0) {
+	// 		if (!videoPath) {
 	// 			return res.status(400).json({ msg: 'At least one video is required.' });
 	// 		}
 	
 	// 		// Create a new post
 	// 		const newPost = new Post({
 	// 			title,
-	// 			image: imagePath,
-	// 			videos: videoPaths, // Store multiple videos
+	// 			images: imagePaths,   // Store multiple images
+	// 			video: videoPath,     // Store one video
 	// 			header,
 	// 			location,
 	// 			content,
@@ -744,109 +535,62 @@ const postimage = multer({storage: storage});
 	// 		res.status(500).json({ success: false, message: err.message });
 	// 	}
 	// });
-	
-	router.post('/post', postimage.any(), async function (req, res) {
+
+	router.post('/post', postimage.any(), async (req, res) => {
 		try {
-			console.log('Received request body:', req.body);
-			console.log('Received files:', req.files);
-	
-			const { title, header, location, content, price, category, user } = req.body;
-	
-			// Ensure all required fields are provided
-			if (!title) {
-				return res.status(400).json({ message: "Title is required." });
-			}
-			if (!header) {
-				return res.status(400).json({ message: "Header is required." });
-			}
-			if (!content) {
-				return res.status(400).json({ message: "Content is required." });
-			}
-			if (!price) {
-				return res.status(400).json({ message: "Price is required." });
-			}
-			if (!category) {
-				return res.status(400).json({ message: "Category is required." });
-			}
-			if (!user) {
-				return res.status(400).json({ message: "User is required." });
-			}
-	
-			// Validate user ID
-			if (!ObjectId.isValid(user)) {
-				return res.status(400).json({ msg: 'Invalid user ID' });
-			}
-	
-			const foundUser = await User.findById(user);
-			if (!foundUser) {
-				return res.status(404).json({ msg: 'User not found' });
-			}
-	
-			if (foundUser.role !== 'admin') {
-				return res.status(403).json({ msg: 'Only admins can create posts' });
-			}
-	
-			// Validate category
-			if (!ObjectId.isValid(category)) {
-				return res.status(400).json({ msg: 'Invalid category ID' });
-			}
-	
-			const foundCategory = await Category.findById(category);
-			if (!foundCategory) {
-				return res.status(404).json({ msg: 'Category not found' });
-			}
-	
-			// Ensure we have the files and handle them
-			let imagePaths = [];  // Store multiple images
-			let videoPath = "";   // Store one video
-	
-			if (req.files && req.files.length > 0) {
-				req.files.forEach(file => {
-					if (file.fieldname === 'image[]') {
-						imagePaths.push(FILE_PATH + file.filename); // Store multiple images
-					} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
-						if (videoPath) {
-							return res.status(400).json({ msg: 'Only one video is allowed.' }); // Allow only one video
-						}
-						videoPath = FILE_PATH + file.filename; // Store one video
-					}
-				});
-			}
-	
-			if (imagePaths.length === 0) {
-				return res.status(400).json({ msg: 'At least one image is required.' });
-			}
-			if (!videoPath) {
-				return res.status(400).json({ msg: 'At least one video is required.' });
-			}
-	
-			// Create a new post
-			const newPost = new Post({
-				title,
-				images: imagePaths,   // Store multiple images
-				video: videoPath,     // Store one video
-				header,
-				location,
-				content,
-				price,
-				category,
-				user,
-			});
-	
-			await newPost.save();
-	
-			// Update category with the new post ID
-			await Category.findByIdAndUpdate(category, { $push: { posts: newPost._id } });
-	
-			res.status(200).json({
-				success: true,
-				message: 'Post created successfully',
-				data: newPost,
-			});
+		  const { title, header, location, content, price, category, user, videoUrl, imageUrls } = req.body;
+	  
+		  // Ensure required fields are present
+		  if (!title || !header || !content || !price || !category || !user) {
+			return res.status(400).json({ message: "Missing required fields." });
+		  }
+	  
+		  // Validate user ID
+		  if (!ObjectId.isValid(user)) return res.status(400).json({ message: "Invalid user ID." });
+		  const foundUser = await User.findById(user);
+		  if (!foundUser || foundUser.role !== 'admin') {
+			return res.status(403).json({ message: "Unauthorized." });
+		  }
+	  
+		  // Validate category
+		  if (!ObjectId.isValid(category)) return res.status(400).json({ message: "Invalid category ID." });
+		  const foundCategory = await Category.findById(category);
+		  if (!foundCategory) return res.status(404).json({ message: "Category not found." });
+	  
+		  // Handle files and URLs
+		  const imagePaths = req.files
+			.filter((file) => file.fieldname === 'imageFiles[]')
+			.map((file) => FILE_PATH + file.filename);
+		  const videoPath = req.files.find((file) => file.fieldname === 'videoFile')?.filename;
+		  const allImageUrls = [...(imageUrls || []), ...imagePaths];
+	  
+		  if (!allImageUrls.length) return res.status(400).json({ message: "At least one image is required." });
+		  const finalVideo = videoUrl || (videoPath ? FILE_PATH + videoPath : null);
+		  if (!finalVideo) return res.status(400).json({ message: "At least one video is required." });
+	  
+		  // Create post
+		  const newPost = new Post({
+			title,
+			header,
+			location,
+			content,
+			price,
+			category,
+			user,
+			images: allImageUrls,
+			video: finalVideo,
+		  });
+		  await newPost.save();
+	  
+		  // Update category
+		  await Category.findByIdAndUpdate(category, { $push: { posts: newPost._id } });
+	  
+		  res.status(200).json({ success: true, message: "Post created successfully.", data: newPost });
 		} catch (err) {
-			console.error('Error creating post:', err);
-			res.status(500).json({ success: false, message: err.message });
+		  console.error("Error creating post:", err);
+		  res.status(500).json({ success: false, message: err.message });
 		}
-	});
+	  });
+	  
 	
 module.exports = router;

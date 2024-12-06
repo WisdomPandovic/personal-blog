@@ -76,9 +76,8 @@ router.get('/payment/verify/:reference', async (req, res) => {
 //     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 //     const { trxref, reference } = req.query;
 
-//     // Ensure postId is passed in metadata
-//     const postId = metadata ? JSON.parse(metadata).postId : 'defaultPostId'; // Parse the metadata query parameter
-//     // const postId = req.body.metadata?.postId || 'defaultPostId';
+//       // Access postId from metadata (found inside paymentData)
+//       const postId = paymentData.metadata?.postId || 'defaultPostId';
 
 //     if (!postId) {
 //       console.error('Post ID is missing or invalid');
@@ -127,22 +126,7 @@ router.get('/payment/verify/:reference', async (req, res) => {
 router.get('/payment/callback', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-    const { trxref, reference, metadata } = req.query;
-
-    // Ensure metadata exists and parse it
-    let postId = 'defaultPostId'; // Default postId
-
-    if (metadata) {
-      try {
-        const parsedMetadata = JSON.parse(metadata);
-        postId = parsedMetadata.postId || postId;  // Use postId from metadata, fallback to default
-      } catch (err) {
-        console.error('Error parsing metadata:', err);
-        return res.status(400).json({ error: 'Invalid metadata format' });
-      }
-    }
-
-    console.log('Post ID from metadata:', postId);
+    const { trxref, reference } = req.query;
 
     // If either trxref or reference is missing, return an error
     if (!trxref || !reference) {
@@ -164,6 +148,14 @@ router.get('/payment/callback', async (req, res) => {
 
     const paymentData = response.data.data;
 
+    // Ensure postId is available in metadata
+    const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
+
+    if (!postId) {
+      console.error('Post ID is missing or invalid');
+      return res.status(400).json({ error: 'Post ID is missing from metadata' });
+    }
+
     // Check if payment was successful
     if (paymentData.status === 'success') {
       console.log('Payment verified successfully:', paymentData);
@@ -171,6 +163,7 @@ router.get('/payment/callback', async (req, res) => {
       // Redirect to the post page
       res.redirect(`http://localhost:3000/blog/${postId}`);
       return; // Ensure no further code runs after redirect
+
     } else {
       console.error('Payment verification failed:', paymentData);
       return res.status(400).json({ error: 'Payment verification failed' });

@@ -316,7 +316,7 @@ router.get('/payment/callback', async (req, res) => {
     const { trxref, reference } = req.query;
 
     // Ensure postId is passed in metadata
-    const postId = req.query.metadata?.postId || 'defaultPostId';
+    const postId = req.body.metadata?.postId || 'defaultPostId';
 
     // If either trxref or reference is missing, return an error
     if (!trxref || !reference) {

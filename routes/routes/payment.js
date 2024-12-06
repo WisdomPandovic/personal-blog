@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 const Post = require("../../models/post");
+const User = require("../../models/user");
 
 // Load environment variables
 require('dotenv').config();
@@ -151,6 +152,7 @@ router.get('/payment/callback', async (req, res) => {
 
     // Ensure postId is available in metadata
     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
+    const userId = paymentData.metadata?.userId; // Access userId from metadata
 
     if (!postId) {
       console.error('Post ID is missing or invalid');
@@ -163,6 +165,11 @@ router.get('/payment/callback', async (req, res) => {
 
        // Update the post as paid in the PostModel
        await Post.updateOne({ _id: postId }, { paid: true });
+
+       await User.updateOne(
+        { _id: userId },
+        { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
+      );
 
       // Redirect to the post page
       res.redirect(`http://localhost:3000/blog/${postId}`);

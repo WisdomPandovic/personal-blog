@@ -257,9 +257,12 @@ router.get('/payment/callback', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-    // Extract Paystack callback data from the query parameters
+    // Log the incoming request to inspect the data
+    console.log('Callback Query:', req.query);
+
     const { reference, status, metadata } = req.query;
 
+    // Check if required fields are present
     if (!reference || !status) {
       return res.status(400).json({ error: 'Invalid callback data' });
     }
@@ -300,6 +303,7 @@ router.get('/payment/callback', async (req, res) => {
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
 
   
 

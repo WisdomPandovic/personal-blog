@@ -1,4 +1,5 @@
 const Post = require("../../models/post");
+const authenticate = require('../../middleware/authenticate'); 
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
 const multer = require("multer");
@@ -625,50 +626,45 @@ router.post("/post", async function (req, res) {
 	}
 });
 
-router.get('/post/:id', async function (req, res) {
-	try {
-	  const { id } = req.params;
-	  const userId = req.user.id;  // Assuming you're using a session or token-based auth system
-  
-	  // Fetch the post by ID and populate its details (category, user, comments, etc.)
-	  let post = await Post.findById(id)
-		.populate('category')      // Populate category information
-		.populate('user')          // Populate user information (author of the post)
-		.populate({
-		  path: 'comments.comment_user', // Populate comment user's info
-		  select: 'username',  // Only return the username of the comment author
-		})
-		.lean();  // Convert the mongoose document to plain JavaScript object
-  
-	  if (!post) {
-		return res.status(404).json({ message: 'Post not found' });
-	  }
-  
-	  // Check if the post is paid
-	  if (post.paid) {
-		// Fetch the user to check if they have paid for this post
-		const user = await User.findById(userId);
-  
-		// Check if the post ID is in the user's paid posts list
-		const hasPaidForPost = user.paidPosts.some((paidPostId) => paidPostId.toString() === id.toString());
-  
-		// If the user has not paid for the post, return an error
-		if (!hasPaidForPost) {
-		  return res.status(403).json({ message: 'You need to pay for this post first' });
-		}
-	  }
-  
-	  // If the post is not paid or the user has paid, send the post data as the response
-	  res.status(200).json(post);
-	  
-	} catch (err) {
-	  // Log the error for debugging (optional)
-	  console.error('Error fetching post:', err);
-  
-	  // Send an error response
-	  res.status(500).json({ error: 'Internal Server Error', message: err.message });
-	}
-  });
-  
+router.get('/post/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.userId;  // Access the decoded userId from the token
+
+        if (!id) {
+            return res.status(400).json({ message: 'Post ID is required' });
+        }
+
+        // Fetch the post by ID and populate its details (category, user, comments, etc.)
+        let post = await Post.findById(id)
+            .populate('category')      // Populate category information
+            .populate('user')          // Populate user information (author of the post)
+            .populate({
+                path: 'comments.comment_user', // Populate comment user's info
+                select: 'username',  // Only return the username of the comment author
+            })
+            .lean();  // Convert the mongoose document to plain JavaScript object
+
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Check if the post is paid
+        if (post.paid) {
+            const user = await User.findById(userId);
+            const hasPaidForPost = user.paidPosts.some((paidPostId) => paidPostId.toString() === id.toString());
+
+            if (!hasPaidForPost) {
+                return res.status(403).json({ message: 'You need to pay for this post first' });
+            }
+        }
+
+        res.status(200).json(post);  // Send the post data
+
+    } catch (err) {
+        console.error('Error fetching post:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+});
 
 module.exports = router;

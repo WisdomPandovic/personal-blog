@@ -113,6 +113,9 @@ router.post('/payment', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
+     // Initialize metadata object
+     const metadata = { postId };
+
     // Make a POST request to Paystack to initialize payment
     const response = await axios.post(
       'https://api.paystack.co/transaction/initialize',
@@ -120,6 +123,7 @@ router.post('/payment', async (req, res) => {
         email,
         postId,
         amount: amount * 100,  // Paystack expects the amount in kobo (100 kobo = 1 Naira)
+        metadata, 
       },
       {
         headers: {

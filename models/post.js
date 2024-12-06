@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const PostSchema = new mongoose.Schema({
     title: { type: String, required: true },
     images: [{ type: String, required: true }], 
-    video: { type: String, required: true, unique: false },
+    video: { type: String, required: false, unique: false },
     header: { type: String, required: true },
     location: { type: String, required: false },
     content: { type: String, required: true },

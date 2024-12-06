@@ -163,14 +163,60 @@ router.get('/payment/verify/:reference', async (req, res) => {
 });
 
 // POST route for Paystack callback (payment success or failure)
-router.post('/payment/callback', async (req, res) => {
-  const { reference, status } = req.body;  // Paystack callback data
+// router.post('/payment/callback', async (req, res) => {
+//   const { reference, status } = req.body;  // Paystack callback data
 
-  if (status === 'success') {
-    try {
-      // Verify payment by checking with Paystack API
-      const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+//   if (status === 'success') {
+//     try {
+//       // Verify payment by checking with Paystack API
+//       const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
       
+//       const response = await axios.get(
+//         `https://api.paystack.co/transaction/verify/${reference}`,
+//         {
+//           headers: {
+//             Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+//           },
+//         }
+//       );
+
+//       if (response.data.data.status === 'success') {
+//         const postId = response.data.data.metadata.postId;  // Assuming metadata holds postId
+//         return res.status(200).json({ message: 'Payment successful', postId });
+//         // Redirect user to the post details page
+//         return res.redirect(`/blog/${postId}`);
+//       } else {
+//         return res.status(400).send("Payment verification failed");
+//       }
+//     } catch (err) {
+//       console.error('Error verifying payment:', err);
+//       return res.status(500).send("Error verifying payment");
+//     }
+//   } else {
+//     // Payment failed, notify user
+//     return res.status(400).send("Payment failed");
+//   }
+// });
+
+router.post('/payment/callback', async (req, res) => {
+  try {
+    const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+    // Extract Paystack callback data
+    const { data } = req.body;
+    if (!data) {
+      return res.status(400).json({ error: 'Invalid callback payload' });
+    }
+
+    const { reference, status, metadata } = data;
+
+    // Validate required fields
+    if (!reference || !status) {
+      return res.status(400).json({ error: 'Invalid callback data' });
+    }
+
+    if (status === 'success') {
+      // Verify payment using Paystack API
       const response = await axios.get(
         `https://api.paystack.co/transaction/verify/${reference}`,
         {
@@ -180,20 +226,29 @@ router.post('/payment/callback', async (req, res) => {
         }
       );
 
-      if (response.data.data.status === 'success') {
-        const postId = response.data.data.metadata.postId;  // Assuming metadata holds postId
-        // Redirect user to the post details page
-        return res.redirect(`/blog/${postId}`);
+      const paymentData = response.data.data;
+
+      if (paymentData.status === 'success') {
+        const postId = paymentData.metadata?.postId;
+
+        console.log('Payment verified successfully:', paymentData);
+
+        return res.status(200).json({
+          message: 'Payment successful',
+          postId,
+          paymentDetails: paymentData,
+        });
       } else {
-        return res.status(400).send("Payment verification failed");
+        console.error('Payment verification failed:', paymentData);
+        return res.status(400).json({ error: 'Payment verification failed' });
       }
-    } catch (err) {
-      console.error('Error verifying payment:', err);
-      return res.status(500).send("Error verifying payment");
+    } else {
+      console.error('Payment failed:', data);
+      return res.status(400).json({ error: 'Payment failed' });
     }
-  } else {
-    // Payment failed, notify user
-    return res.status(400).send("Payment failed");
+  } catch (err) {
+    console.error('Error handling payment callback:', err.message, err);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

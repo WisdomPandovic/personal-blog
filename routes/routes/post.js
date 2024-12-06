@@ -592,9 +592,9 @@ router.post("/post", async function (req, res) {
 			return res.status(400).json({ msg: "At least one image URL is required." });
 		}
 
-		if (!video) {
-			return res.status(400).json({ msg: "A video URL is required." });
-		}
+		// if (!video) {
+		// 	return res.status(400).json({ msg: "A video URL is required." });
+		// }
 
 		// Create a new post
 		const newPost = new Post({

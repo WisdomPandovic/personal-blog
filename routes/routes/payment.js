@@ -188,16 +188,41 @@ router.get('/payment/callback', async (req, res) => {
 router.post("/payment/status", async (req, res) => {
   const { reference, postId, userId } = req.body; // Payment reference, postId, and userId from the client
 
-  // Check if reference, postId, and userId are all present in the request body
-  if (!reference || !postId || !userId) {
-    return res.status(400).json({ error: "Payment reference, postId, and userId are required." });
+  // Validate request parameters
+  if (!postId || !userId) {
+    return res.status(400).json({ error: "Post ID and User ID are required." });
   }
 
   try {
+    // Check if the user exists and if the post has already been paid for
+    const user = await User.findById(userId); // Assuming a Mongoose model `User`
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    // Check if the post is already in the user's `paidPosts`
+    const hasPaidForPost = user.paidPosts.some(
+      (paidPostId) => paidPostId.toString() === postId
+    );
+
+    if (hasPaidForPost) {
+      const postUrl = `http://localhost:3000/blog/${postId}`; // Construct full post detail URL
+      return res.status(200).json({
+        success: true,
+        message: "User has already paid for this post.",
+        postUrl: postUrl,
+      });
+    }
+
+    // If no payment reference is provided, return an error
+    if (!reference) {
+      return res.status(400).json({ error: "Payment reference is required for new payments." });
+    }
+
+    // Verify the payment with Paystack
     const PAYSTACK_URL = `https://api.paystack.co/transaction/verify/${reference}`;
     const SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-    // Make an API call to verify the payment
     const response = await axios.get(PAYSTACK_URL, {
       headers: {
         Authorization: `Bearer ${SECRET_KEY}`,
@@ -215,6 +240,10 @@ router.post("/payment/status", async (req, res) => {
           message: "Post ID does not match with the payment metadata.",
         });
       }
+
+      // Add the paid post to the user's `paidPosts`
+      user.paidPosts.push(postId);
+      await user.save();
 
       const postUrl = `http://localhost:3000/blog/${postId}`; // Construct full post detail URL
       return res.status(200).json({
@@ -238,6 +267,7 @@ router.post("/payment/status", async (req, res) => {
     });
   }
 });
+
 
 
 module.exports = router;

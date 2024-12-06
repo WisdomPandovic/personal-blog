@@ -9,18 +9,18 @@ require('dotenv').config();
 
 // POST route to initialize Paystack payment
 router.post('/payment', async (req, res) => {
-  const { amount, email, postId } = req.body;
+  const { amount, email, postId, userId  } = req.body;
 
   // Validate the request
-  if (!amount || !email || !postId) {
-    return res.status(400).json({ error: 'Amount and email are required' });
+  if (!amount || !email || !postId || !userId) {
+    return res.status(400).json({ error: 'Amount, email, postId, and userId are required' });
   }
 
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
     // Initialize metadata object
-    const metadata = { postId };
+    const metadata = { postId, userId };
 
     // Make a POST request to Paystack to initialize payment
     const response = await axios.post(

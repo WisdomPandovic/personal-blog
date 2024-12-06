@@ -29,38 +29,38 @@ const storage = multer.diskStorage({
 const postimage = multer({ storage: storage });
 
 // const routes = function (app) {
-// router.get('/post', async function (req, res) {
-// 	try {
-// 		let post = await Post.find().populate("category").populate('user').lean();
-// 		res.json(post)
-
-// 	} catch (err) {
-// 		res.status(500).send(err.message)
-// 	}
-// });
-
-router.get('/post/:id', async function (req, res) {
+router.get('/post', async function (req, res) {
 	try {
-		let { id } = req.params;
-		let post = await Post.findById(id).populate('category').populate('user')
-			.populate({
-				path: 'comments.comment_user',
-				select: 'username',
-			})
-			.populate('comments.text')
-			.lean();
+		let post = await Post.find().populate("category").populate('user').lean();
+		res.json(post)
 
-		if (!post) {
-			return res.status(404).json({ message: 'Post not found' });
-		};
-		console.log('Post:', post);
-		console.log(post.comments)
-		res.json(post);
 	} catch (err) {
-
 		res.status(500).send(err.message)
 	}
 });
+
+// router.get('/post/:id', async function (req, res) {
+// 	try {
+// 		let { id } = req.params;
+// 		let post = await Post.findById(id).populate('category').populate('user')
+// 			.populate({
+// 				path: 'comments.comment_user',
+// 				select: 'username',
+// 			})
+// 			.populate('comments.text')
+// 			.lean();
+
+// 		if (!post) {
+// 			return res.status(404).json({ message: 'Post not found' });
+// 		};
+// 		console.log('Post:', post);
+// 		console.log(post.comments)
+// 		res.json(post);
+// 	} catch (err) {
+
+// 		res.status(500).send(err.message)
+// 	}
+// });
 
 router.put('/post/:id', async function (req, res) {
 	try {

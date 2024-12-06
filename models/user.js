@@ -36,6 +36,10 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'posts',
   }],
+  paidPosts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'posts',  // Track the paid posts
+  }],
 });
 
 // Hash password before saving (using bcrypt with a reasonable salt rounds)

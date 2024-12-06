@@ -23,7 +23,8 @@ const PostSchema = new mongoose.Schema({
             reply_user: { type: mongoose.Schema.Types.ObjectId, ref: 'users' }
         }],
     }],
-    date: { type: Date, default: Date.now }
+    date: { type: Date, default: Date.now },
+    paid: { type: Boolean, default: false } 
 });
 
 const Post = mongoose.model('posts', PostSchema);

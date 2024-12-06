@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const Post = require("../../models/post");
 
 // Load environment variables
 require('dotenv').config();
@@ -159,6 +160,9 @@ router.get('/payment/callback', async (req, res) => {
     // Check if payment was successful
     if (paymentData.status === 'success') {
       console.log('Payment verified successfully:', paymentData);
+
+       // Update the post as paid in the PostModel
+       await Post.updateOne({ _id: postId }, { paid: true });
 
       // Redirect to the post page
       res.redirect(`http://localhost:3000/blog/${postId}`);

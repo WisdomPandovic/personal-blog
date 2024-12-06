@@ -306,9 +306,6 @@ router.get('/payment/verify/:reference', async (req, res) => {
 //   }
 // });
 
-const axios = require('axios');
-const router = require('express').Router();
-
 router.get('/payment/callback', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;

@@ -198,19 +198,68 @@ router.get('/payment/verify/:reference', async (req, res) => {
 //   }
 // });
 
-router.post('/payment/callback', async (req, res) => {
+// router.post('/payment/callback', async (req, res) => {
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     // Extract Paystack callback data
+//     const { data } = req.body;
+//     if (!data) {
+//       return res.status(400).json({ error: 'Invalid callback payload' });
+//     }
+
+//     const { reference, status, metadata } = data;
+
+//     // Validate required fields
+//     if (!reference || !status) {
+//       return res.status(400).json({ error: 'Invalid callback data' });
+//     }
+
+//     if (status === 'success') {
+//       // Verify payment using Paystack API
+//       const response = await axios.get(
+//         `https://api.paystack.co/transaction/verify/${reference}`,
+//         {
+//           headers: {
+//             Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+//           },
+//         }
+//       );
+
+//       const paymentData = response.data.data;
+
+//       if (paymentData.status === 'success') {
+//         const postId = paymentData.metadata?.postId;
+
+//         console.log('Payment verified successfully:', paymentData);
+
+//         return res.status(200).json({
+//           message: 'Payment successful',
+//           postId,
+//           paymentDetails: paymentData,
+//         });
+//       } else {
+//         console.error('Payment verification failed:', paymentData);
+//         return res.status(400).json({ error: 'Payment verification failed' });
+//       }
+//     } else {
+//       console.error('Payment failed:', data);
+//       return res.status(400).json({ error: 'Payment failed' });
+//     }
+//   } catch (err) {
+//     console.error('Error handling payment callback:', err.message, err);
+//     return res.status(500).json({ error: 'Internal Server Error' });
+//   }
+// });
+
+// Change this from POST to GET
+router.get('/payment/callback', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-    // Extract Paystack callback data
-    const { data } = req.body;
-    if (!data) {
-      return res.status(400).json({ error: 'Invalid callback payload' });
-    }
+    // Extract Paystack callback data from the query parameters
+    const { reference, status, metadata } = req.query;
 
-    const { reference, status, metadata } = data;
-
-    // Validate required fields
     if (!reference || !status) {
       return res.status(400).json({ error: 'Invalid callback data' });
     }
@@ -243,7 +292,7 @@ router.post('/payment/callback', async (req, res) => {
         return res.status(400).json({ error: 'Payment verification failed' });
       }
     } else {
-      console.error('Payment failed:', data);
+      console.error('Payment failed:', req.query);
       return res.status(400).json({ error: 'Payment failed' });
     }
   } catch (err) {
@@ -251,7 +300,6 @@ router.post('/payment/callback', async (req, res) => {
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
 
   
 

@@ -260,49 +260,46 @@ router.get('/payment/callback', async (req, res) => {
     // Log the incoming request to inspect the data
     console.log('Callback Query:', req.query);
 
-    const { reference, status, metadata } = req.query;
+    const { trxref, reference } = req.query;
 
-    // Check if required fields are present
-    if (!reference || !status) {
+    // If either trxref or reference is missing, return an error
+    if (!trxref || !reference) {
       return res.status(400).json({ error: 'Invalid callback data' });
     }
 
-    if (status === 'success') {
-      // Verify payment using Paystack API
-      const response = await axios.get(
-        `https://api.paystack.co/transaction/verify/${reference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-          },
-        }
-      );
-
-      const paymentData = response.data.data;
-
-      if (paymentData.status === 'success') {
-        const postId = paymentData.metadata?.postId;
-
-        console.log('Payment verified successfully:', paymentData);
-
-        return res.status(200).json({
-          message: 'Payment successful',
-          postId,
-          paymentDetails: paymentData,
-        });
-      } else {
-        console.error('Payment verification failed:', paymentData);
-        return res.status(400).json({ error: 'Payment verification failed' });
+    // Verify the payment using Paystack's verify endpoint
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        },
       }
+    );
+
+    const paymentData = response.data.data;
+
+    // Check if payment was successful
+    if (paymentData.status === 'success') {
+      const postId = paymentData.metadata?.postId;
+
+      console.log('Payment verified successfully:', paymentData);
+
+      return res.status(200).json({
+        message: 'Payment successful',
+        postId,
+        paymentDetails: paymentData,
+      });
     } else {
-      console.error('Payment failed:', req.query);
-      return res.status(400).json({ error: 'Payment failed' });
+      console.error('Payment verification failed:', paymentData);
+      return res.status(400).json({ error: 'Payment verification failed' });
     }
   } catch (err) {
     console.error('Error handling payment callback:', err.message, err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
 
 
   

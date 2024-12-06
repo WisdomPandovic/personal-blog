@@ -113,8 +113,8 @@ router.post('/payment', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-     // Initialize metadata object
-     const metadata = { postId };
+    // Initialize metadata object
+    const metadata = { postId };
 
     // Make a POST request to Paystack to initialize payment
     const response = await axios.post(
@@ -123,7 +123,7 @@ router.post('/payment', async (req, res) => {
         email,
         postId,
         amount: amount * 100,  // Paystack expects the amount in kobo (100 kobo = 1 Naira)
-        metadata, 
+        metadata,
       },
       {
         headers: {
@@ -316,7 +316,13 @@ router.get('/payment/callback', async (req, res) => {
     const { trxref, reference } = req.query;
 
     // Ensure postId is passed in metadata
-    const postId = req.body.metadata?.postId || 'defaultPostId';
+    const postId = metadata ? JSON.parse(metadata).postId : 'defaultPostId'; // Parse the metadata query parameter
+    // const postId = req.body.metadata?.postId || 'defaultPostId';
+
+    if (!postId) {
+      console.error('Post ID is missing or invalid');
+      return res.status(400).json({ error: 'Post ID is missing from metadata' });
+    }
 
     // If either trxref or reference is missing, return an error
     if (!trxref || !reference) {

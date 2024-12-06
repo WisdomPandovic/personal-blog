@@ -214,9 +214,12 @@ router.post("/payment/status", async (req, res) => {
       });
     }
 
-    // If no payment reference is provided, return an error
+    // If no reference is provided and the user has not paid, return a "not paid" response
     if (!reference) {
-      return res.status(400).json({ error: "Payment reference is required for new payments." });
+      return res.status(200).json({
+        success: false,
+        message: "User has not paid for this post.",
+      });
     }
 
     // Verify the payment with Paystack

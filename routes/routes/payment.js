@@ -71,7 +71,7 @@
 
 // router.post('/payment/callback', async (req, res) => {
 //     const { reference, status } = req.body;  // Paystack callback data
-    
+
 //     if (status === 'success') {
 //         // Verify payment by checking with Paystack API
 //         const transaction = await verifyTransaction(reference); // Make API request to Paystack
@@ -170,7 +170,7 @@ router.get('/payment/verify/:reference', async (req, res) => {
 //     try {
 //       // Verify payment by checking with Paystack API
 //       const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-      
+
 //       const response = await axios.get(
 //         `https://api.paystack.co/transaction/verify/${reference}`,
 //         {
@@ -281,7 +281,7 @@ router.get('/payment/callback', async (req, res) => {
 
     // Check if payment was successful
     if (paymentData.status === 'success') {
-      const postId = paymentData.metadata?.postId;
+      const postId = paymentData.metadata?.postId || 'defaultPostId';;
 
       console.log('Payment verified successfully:', paymentData);
 
@@ -290,6 +290,10 @@ router.get('/payment/callback', async (req, res) => {
         postId,
         paymentDetails: paymentData,
       });
+
+      // Optionally, redirect user to the post
+      res.redirect(`/blog/${postId}`);
+
     } else {
       console.error('Payment verification failed:', paymentData);
       return res.status(400).json({ error: 'Payment verification failed' });
@@ -302,7 +306,7 @@ router.get('/payment/callback', async (req, res) => {
 
 
 
-  
+
 
 module.exports = router;
 

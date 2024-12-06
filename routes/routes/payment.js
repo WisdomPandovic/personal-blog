@@ -9,7 +9,7 @@ require('dotenv').config();
 
 // POST route to initialize Paystack payment
 router.post('/payment', async (req, res) => {
-  const { amount, email, postId, userId  } = req.body;
+  const { amount, email, postId, userId } = req.body;
 
   // Validate the request
   if (!amount || !email || !postId || !userId) {
@@ -163,10 +163,10 @@ router.get('/payment/callback', async (req, res) => {
     if (paymentData.status === 'success') {
       console.log('Payment verified successfully:', paymentData);
 
-       // Update the post as paid in the PostModel
-       await Post.updateOne({ _id: postId }, { paid: true });
+      // Update the post as paid in the PostModel
+      await Post.updateOne({ _id: postId }, { paid: true });
 
-       await User.updateOne(
+      await User.updateOne(
         { _id: userId },
         { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
       );
@@ -185,5 +185,66 @@ router.get('/payment/callback', async (req, res) => {
   }
 });
 
+router.post("/payment/status", async (req, res) => {
+  const { reference } = req.body; // Payment reference from the client
+
+  if (!reference) {
+    return res.status(400).json({ error: "Payment reference is required." });
+  }
+
+  try {
+    // Replace with your payment gateway's verification URL
+    const PAYSTACK_URL = `https://api.paystack.co/transaction/verify/${reference}`;
+    const SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+    // Make an API call to verify the payment
+    const response = await axios.get(PAYSTACK_URL, {
+      headers: {
+        Authorization: `Bearer ${SECRET_KEY}`,
+      },
+    });
+
+    const data = response.data;
+
+    if (data.status && data.data.status === "success") {
+      // Extract postId from payment metadata
+      const postId = data.data.metadata?.postId;
+
+      // Ensure postId exists, otherwise return an error
+      if (!postId) {
+        return res.status(400).json({
+          success: false,
+          message: "Post ID is missing from payment metadata.",
+        });
+      }
+
+      // Construct full post detail URL
+      const postUrl = `http://localhost:3000/blog/${postId}`;
+
+      // Return successful response with post URL
+      return res.status(200).json({
+        success: true,
+        message: "Payment verified successfully.",
+        postUrl: postUrl, // Send the full post URL to the frontend
+        data: data.data, // Include payment details for logging or other purposes
+      });
+
+    } else {
+      // Payment failed or incomplete
+      return res.status(400).json({
+        success: false,
+        message: "Payment verification failed.",
+        data: data.data, // Payment details
+      });
+    }
+
+  } catch (error) {
+    console.error("Error verifying payment:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while verifying payment.",
+    });
+  }
+});
 
 module.exports = router;

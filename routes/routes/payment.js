@@ -186,14 +186,14 @@ router.get('/payment/callback', async (req, res) => {
 });
 
 router.post("/payment/status", async (req, res) => {
-  const { reference } = req.body; // Payment reference from the client
+  const { reference, postId, userId } = req.body; // Payment reference, postId, and userId from the client
 
-  if (!reference) {
-    return res.status(400).json({ error: "Payment reference is required." });
+  // Check if reference, postId, and userId are all present in the request body
+  if (!reference || !postId || !userId) {
+    return res.status(400).json({ error: "Payment reference, postId, and userId are required." });
   }
 
   try {
-    // Replace with your payment gateway's verification URL
     const PAYSTACK_URL = `https://api.paystack.co/transaction/verify/${reference}`;
     const SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
@@ -207,37 +207,29 @@ router.post("/payment/status", async (req, res) => {
     const data = response.data;
 
     if (data.status && data.data.status === "success") {
-      // Extract postId from payment metadata
-      const postId = data.data.metadata?.postId;
+      const postIdFromMetadata = data.data.metadata?.postId;
 
-      // Ensure postId exists, otherwise return an error
-      if (!postId) {
+      if (postIdFromMetadata !== postId) {
         return res.status(400).json({
           success: false,
-          message: "Post ID is missing from payment metadata.",
+          message: "Post ID does not match with the payment metadata.",
         });
       }
 
-      // Construct full post detail URL
-      const postUrl = `http://localhost:3000/blog/${postId}`;
-
-      // Return successful response with post URL
+      const postUrl = `http://localhost:3000/blog/${postId}`; // Construct full post detail URL
       return res.status(200).json({
         success: true,
         message: "Payment verified successfully.",
-        postUrl: postUrl, // Send the full post URL to the frontend
-        data: data.data, // Include payment details for logging or other purposes
+        postUrl: postUrl,
+        data: data.data,
       });
-
     } else {
-      // Payment failed or incomplete
       return res.status(400).json({
         success: false,
         message: "Payment verification failed.",
-        data: data.data, // Payment details
+        data: data.data,
       });
     }
-
   } catch (error) {
     console.error("Error verifying payment:", error.message);
     return res.status(500).json({
@@ -246,5 +238,6 @@ router.post("/payment/status", async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

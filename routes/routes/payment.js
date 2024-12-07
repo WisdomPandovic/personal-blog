@@ -172,7 +172,7 @@ router.get('/payment/callback', async (req, res) => {
       );
 
       // Redirect to the post page
-      res.redirect(`http://localhost:3000/blog/${postId}`);
+      res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
       return; // Ensure no further code runs after redirect
 
     } else {
@@ -206,7 +206,7 @@ router.post("/payment/status", async (req, res) => {
     );
 
     if (hasPaidForPost) {
-      const postUrl = `http://localhost:3000/blog/${postId}`; // Construct full post detail URL
+      const postUrl = `https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`; // Construct full post detail URL
       return res.status(200).json({
         success: true,
         message: "User has already paid for this post.",
@@ -248,7 +248,7 @@ router.post("/payment/status", async (req, res) => {
       user.paidPosts.push(postId);
       await user.save();
 
-      const postUrl = `http://localhost:3000/blog/${postId}`; // Construct full post detail URL
+      const postUrl = `https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`; // Construct full post detail URL
       return res.status(200).json({
         success: true,
         message: "Payment verified successfully.",

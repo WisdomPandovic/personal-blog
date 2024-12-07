@@ -348,10 +348,10 @@ router.put('/replyunlikes/:id/:commentId', async (req, res) => {
 	}
 });
 
-router.get('/post/tag/:tagId', async (req, res) => {
+router.get('/post/category/:categoryId', async (req, res) => {
 	try {
-		const tagId = req.params.tagId;
-		const post = await Post.find({ tag: tagId });
+		const categoryId = req.params.categoryId;
+		const post = await Post.find({ category: categoryId });
 		res.json(post);
 	} catch (error) {
 		res.status(500).json({ error: 'Internal server error' });

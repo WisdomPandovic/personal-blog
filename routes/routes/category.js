@@ -26,7 +26,7 @@ router.get('/category/:id', async function (req, res) {
 		}
 
 		// Fetch category with populated posts
-		let category = await Category.findById(id).populate('post');
+		let category = await Category.findById(id).populate('post').lean();
 
 		if (!category) {
 			return res.status(404).json({ msg: 'Category not found' });
@@ -34,7 +34,7 @@ router.get('/category/:id', async function (req, res) {
 
 		// Prepare response data
 		let data = {
-			title: category.title,
+			name: category.name,
 			id: category.id,
 			post: category.post || []
 		};

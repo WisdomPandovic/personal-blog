@@ -541,7 +541,7 @@ router.post("/post", async function (req, res) {
 	try {
 		console.log("Received request body:", req.body);
 
-		const { title, header, location, content, price, category, user, images, video } = req.body;
+		const { title, header, location, content, price, category, user, images, video, tag } = req.body;
 
 		// Ensure all required fields are provided
 		if (!title) {
@@ -608,6 +608,7 @@ router.post("/post", async function (req, res) {
 			price,
 			category,
 			user,
+			tag
 		});
 
 		await newPost.save();

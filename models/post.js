@@ -9,6 +9,7 @@ const PostSchema = new mongoose.Schema({
     content: { type: String, required: true },
     price: { type: String, required: true },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'category',},
+    tag: [{ type: String, required: false, unique: false }],
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'users' }],
     views: { type: Number, default: 0 },

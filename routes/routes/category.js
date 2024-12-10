@@ -8,7 +8,7 @@ const router = express.Router();
 // const routes = function (app) {
 router.get('/category', async function (req, res) {
 	try {
-		let category = await Category.find().populate('post').lean()
+		let category = await Category.find().populate('posts').lean()
 		console.log('Populated categories with posts:', category);
 		res.json(category)
 	} catch (err) {
@@ -26,7 +26,7 @@ router.get('/category/:id', async function (req, res) {
 		}
 
 		// Fetch category with populated posts
-		let category = await Category.findById(id).populate('post').lean();
+		let category = await Category.findById(id).populate('posts').lean();
 
 		if (!category) {
 			return res.status(404).json({ msg: 'Category not found' });
@@ -36,7 +36,7 @@ router.get('/category/:id', async function (req, res) {
 		let data = {
 			name: category.name,
 			id: category.id,
-			post: category.post || []
+			post: category.posts || []
 		};
 
 		res.json({ status: 'success', data });

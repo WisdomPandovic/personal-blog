@@ -651,6 +651,17 @@ router.get('/post/:id', authenticate, async (req, res) => {
             return res.status(404).json({ message: 'Post not found' });
         }
 
+		 // Fetch the user to check if they are an admin
+		 const user = await User.findById(userId);
+		 if (!user) {
+			 return res.status(403).json({ message: 'User not found' });
+		 }
+ 
+		 // Allow admin to view the post without payment
+		 if (user.role === 'admin') {
+			 return res.status(200).json(post); // Admin can view the post
+		 }
+
         // Check if the post is paid
         if (post.paid) {
             const user = await User.findById(userId);

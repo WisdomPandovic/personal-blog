@@ -658,13 +658,13 @@ router.get('/post/:id', authenticate, async (req, res) => {
 		 }
  
 		 // Allow admin to view the post without payment
-		 if (user.role === 'admin') {
-			 return res.status(200).json(post); // Admin can view the post
-		 }
+		 if (user.isAdmin) {
+			return res.status(200).json(post); // Admin can view the post
+		}
 
         // Check if the post is paid
         if (post.paid) {
-            const user = await User.findById(userId);
+            // const user = await User.findById(userId);
             const hasPaidForPost = user.paidPosts.some((paidPostId) => paidPostId.toString() === id.toString());
 
             if (!hasPaidForPost) {

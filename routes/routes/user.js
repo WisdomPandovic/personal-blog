@@ -307,6 +307,9 @@ router.post('/login', async (req, res) => {
         // Compare the plain text password from the request with the hashed password stored in the database
         const isPasswordValid = await bcrypt.compare(password, user.password);
         console.log("Password comparison result:", isPasswordValid);
+        if (!isPasswordValid) {
+            return res.status(401).json({ msg: 'Invalid username or password' });
+        }
 
         const payload = { userId: user._id, role: user.role, userEmail: user.email, };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -349,7 +352,7 @@ router.post('/admin/signin', async (req, res) => {
         }
 
         // Create and sign a JWT token
-        const payload = { userId: user._id, role: user.role };
+        const payload = { userId: user._id, isAdmin: user.isAdmin, role: user.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });  // Replace 'your_jwt_secret' with your actual secret key
 
         // Respond with the JWT token
@@ -359,8 +362,6 @@ router.post('/admin/signin', async (req, res) => {
         res.status(500).json({ msg: 'Server error' });
     }
 });
-
-module.exports = router;
 
 
 module.exports = router;

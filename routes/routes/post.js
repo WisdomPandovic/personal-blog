@@ -633,6 +633,11 @@ router.get('/post/:id', authenticate, async (req, res) => {
         const { id } = req.params;
         const userId = req.user.userId;  // Access the decoded userId from the token
 
+	     // Validate ObjectId format before querying
+		 if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Post ID format' });
+        }
+
         if (!id) {
             return res.status(400).json({ message: 'Post ID is required' });
         }

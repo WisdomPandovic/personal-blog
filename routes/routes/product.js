@@ -122,3 +122,5 @@ router.post("/product", async function (req, res) {
 		res.status(500).json({ success: false, message: err.message });
 	}
 });
+
+module.exports = router;

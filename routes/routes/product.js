@@ -108,6 +108,7 @@ router.post("/product", async function (req, res) {
 			category,
 			user,
             info,
+			size,
 		});
 
 		await newProduct.save();

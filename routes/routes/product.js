@@ -43,14 +43,17 @@ router.post("/product", async function (req, res) {
 	try {
 		console.log("Received request body:", req.body);
 
-		const { title, info, price, category, user, images, color, } = req.body;
+		const { title, size, info, price, category, user, images, color, } = req.body;
 
 		// Ensure all required fields are provided
 		if (!title) {
 			return res.status(400).json({ message: "Title is required." });
 		}
 		if (!info) {
-			return res.status(400).json({ message: "Content is required." });
+			return res.status(400).json({ message: "Info is required." });
+		}
+        if (!size) {
+			return res.status(400).json({ message: "Size is required." });
 		}
 		if (!price) {
 			return res.status(400).json({ message: "Price is required." });
@@ -73,7 +76,7 @@ router.post("/product", async function (req, res) {
 		}
 
 		if (foundUser.role !== "admin") {
-			return res.status(403).json({ msg: "Only admins can create products" });
+			return res.status(403).json({ msg: "Only admins can create posts" });
 		}
 
 		// Validate category
@@ -96,7 +99,7 @@ router.post("/product", async function (req, res) {
 		// 	return res.status(400).json({ msg: "A video URL is required." });
 		// }
 
-		// Create a new product
+		// Create a new post
 		const newProduct = new Product({
 			title,
 			images: imagePaths, // Accepting image URLs
@@ -109,7 +112,7 @@ router.post("/product", async function (req, res) {
 
 		await newProduct.save();
 
-		// Update category with the new product ID
+		// Update category with the new post ID
 		await Category.findByIdAndUpdate(category, { $push: { products: newProduct._id } });
 
 		res.status(200).json({
@@ -120,6 +123,36 @@ router.post("/product", async function (req, res) {
 	} catch (err) {
 		console.error("Error creating product:", err);
 		res.status(500).json({ success: false, message: err.message });
+	}
+});
+
+router.get('/product/title/:title', async function (req, res) {
+    try {
+        const { title } = req.params;
+
+        if (!title) {
+            return res.status(400).json({ message: "Title is required." });
+        }
+
+        const product = await Product.findOne({ title: title }).populate("category").populate("user").lean();
+
+        if (!product) {
+            return res.status(404).json({ message: "Product not found." });
+        }
+
+        res.json(product);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.get('/product/category/:categoryId', async (req, res) => {
+	try {
+		const categoryId = req.params.categoryId;
+		const product = await Product.find({ category: categoryId });
+		res.json(product);
+	} catch (error) {
+		res.status(500).json({ error: 'Internal server error' });
 	}
 });
 

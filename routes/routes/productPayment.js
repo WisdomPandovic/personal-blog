@@ -137,7 +137,7 @@ router.get("/payment/callback", async (req, res) => {
         const paymentData = response.data.data;
 
         if (paymentData.status === "success") {
-            const { userId, cartItems, type } = paymentData.metadata; 
+            const { userId, cartItems, type, postId } = paymentData.metadata; // ✅ Extract postId 
 
             if (type === "product_purchase") {
                 // Save order for product purchase
@@ -154,16 +154,17 @@ router.get("/payment/callback", async (req, res) => {
                 // Redirect to order confirmation page
                 return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
             } 
-            else if (type === "blog_subscription") {
-                // Handle blog subscription (Grant access, update DB, etc.)
-                const user = await User.findById(userId);
-                if (user) {
-                    user.hasPaidSubscription = true; // Update user subscription status
-                    await user.save();
-                }
+            else if (type === "blog_subscription" && postId) { // ✅ Ensure postId is present
+                // Grant access to the post
+                await Post.updateOne({ _id: postId }, { paid: true });
 
-                // Redirect to blog dashboard or success page
-                return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/subscription-success`);
+                await User.updateOne(
+                    { _id: userId },
+                    { $addToSet: { paidPosts: postId } } // Add postId to user's paidPosts array
+                );
+
+                // Redirect to the paid blog post
+                return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
             } 
             else {
                 // Unknown type, redirect to a generic success page

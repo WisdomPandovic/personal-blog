@@ -20,7 +20,7 @@ router.post('/payment', async (req, res) => {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
     // Initialize metadata object
-    const metadata = { postId, userId };
+    const metadata = { postId, userId, type: "blog_subscription", };
 
     // Make a POST request to Paystack to initialize payment
     const response = await axios.post(

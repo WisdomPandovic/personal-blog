@@ -47,96 +47,136 @@ router.post("/products/payment", async (req, res) => {
   }
 });
 
-// GET route to verify product payment
-// router.get("/productpayment/verify/:reference", async (req, res) => {
-//   const { reference } = req.params;
+router.get('/product/payment/verify/:reference', async (req, res) => {
+  const { reference } = req.params;
 
-//   try {
-//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+  try {
+    const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-//     // Verify payment with Paystack
-//     const response = await axios.get(
-//       `https://api.paystack.co/transaction/verify/${reference}`,
-//       {
-//         headers: {
-//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-//         },
-//       }
-//     );
-
-//     const paymentData = response.data.data;
-
-//     if (paymentData.status === "success") {
-//       const { userId, cartItems } = paymentData.metadata;
-
-//       // Save order to database
-//       const newOrder = new Order({
-//         userId,
-//         items: cartItems,
-//         totalAmount: paymentData.amount / 100, // Convert from kobo
-//         paymentReference: reference,
-//         status: "paid",
-//       });
-
-//       await newOrder.save();
-
-//     //   res.status(200).json({ success: true, message: "Payment successful.", order: newOrder });
-//       res.status(200).json({
-//         success: true,
-//         message: "Payment successful.",
-//         orderId: newOrder._id, // Send order ID to frontend
-//     });
-//     } else {
-//       res.status(400).json({ success: false, message: "Payment verification failed." });
-//     }
-//   } catch (err) {
-//     console.error("Error verifying payment:", err);
-//     res.status(500).json({ error: "Payment verification failed" });
-//   }
-// });
-
-router.get("/product/payment/verify/:reference", async (req, res) => {
-    const { reference } = req.params;
-  
-    try {
-      const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-  
-      // Verify payment with Paystack
-      const response = await axios.get(
-        `https://api.paystack.co/transaction/verify/${reference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-          },
-        }
-      );
-  
-      const paymentData = response.data.data;
-  
-      if (paymentData.status === "success") {
-        const { userId, cartItems } = paymentData.metadata;
-  
-        // Save order to database
-        const newOrder = new Order({
-          userId,
-          items: cartItems,
-          totalAmount: paymentData.amount / 100, // Convert from kobo
-          paymentReference: reference,
-          status: "paid",
-        });
-  
-        await newOrder.save();
-  
-        // Redirect the user to the order confirmation page
-        return res.redirect(`https://personal-blog-giw8.onrender.com/order-confirmation/${newOrder._id}`);
-      } else {
-        return res.status(400).json({ success: false, message: "Payment verification failed." });
+    // Make a GET request to Paystack to verify the payment using the reference
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        },
       }
-    } catch (err) {
-      console.error("Error verifying payment:", err);
-      return res.status(500).json({ error: "Payment verification failed" });
-    }
-  });
+    );
+
+    res.status(200).json(response.data);
+  } catch (err) {
+    console.error('Error verifying payment:', err);
+    res.status(500).json({ error: 'Payment verification failed' });
+  }
+});
   
+//   router.get("/payment/callback", async (req, res) => {
+//     const { trxref, reference } = req.query;
+  
+//     // If either trxref or reference is missing, return an error
+//     if (!trxref || !reference) {
+//         return res.status(400).json({ error: 'Invalid callback data' });
+//       }
+  
+//     try {
+//       const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+  
+//       // Verify payment with Paystack
+//       const response = await axios.get(
+//         `https://api.paystack.co/transaction/verify/${reference}`,
+//         {
+//           headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+//         }
+//       );
+  
+//       const paymentData = response.data.data;
+  
+//       if (paymentData.status === "success") {
+//         const { userId, cartItems } = paymentData.metadata;
+  
+//         // Save order to database
+//         const newOrder = new Order({
+//           userId,
+//           items: cartItems,
+//           totalAmount: paymentData.amount / 100, // Convert from kobo
+//           paymentReference: reference,
+//           status: "paid",
+//         });
+  
+//         await newOrder.save();
+  
+//         // ✅ Redirect user to the order confirmation page
+//         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
+//       } else {
+//         return res.status(400).json({ success: false, message: "Payment verification failed." });
+//       }
+//     } catch (err) {
+//       console.error("Error verifying payment:", err);
+//       return res.status(500).json({ error: "Payment verification failed" });
+//     }
+//   });
+  
+router.get("/payment/callback", async (req, res) => {
+    const { reference } = req.query;
+
+    if (!reference) {
+        return res.status(400).json({ error: "Invalid callback data" });
+    }
+
+    try {
+        const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+        // Verify payment with Paystack
+        const response = await axios.get(
+            `https://api.paystack.co/transaction/verify/${reference}`,
+            {
+                headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+            }
+        );
+
+        const paymentData = response.data.data;
+
+        if (paymentData.status === "success") {
+            const { userId, cartItems, type } = paymentData.metadata; 
+
+            if (type === "product_purchase") {
+                // Save order for product purchase
+                const newOrder = new Order({
+                    userId,
+                    items: cartItems,
+                    totalAmount: paymentData.amount / 100, // Convert from kobo
+                    paymentReference: reference,
+                    status: "paid",
+                });
+
+                await newOrder.save();
+
+                // Redirect to order confirmation page
+                return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
+            } 
+            else if (type === "blog_subscription") {
+                // Handle blog subscription (Grant access, update DB, etc.)
+                const user = await User.findById(userId);
+                if (user) {
+                    user.hasPaidSubscription = true; // Update user subscription status
+                    await user.save();
+                }
+
+                // Redirect to blog dashboard or success page
+                return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/subscription-success`);
+            } 
+            else {
+                // Unknown type, redirect to a generic success page
+                return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-success`);
+            }
+        } else {
+            // If payment fails, redirect to failure page
+            return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+        }
+    } catch (err) {
+        console.error("Error verifying payment:", err);
+        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+    }
+});
 
 module.exports = router;

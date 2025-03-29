@@ -33,6 +33,7 @@ require('../routes/subscription')(router);
 require('../routes/search')(router);
 require('../routes/payment')(router);
 require('../routes/product')(router);
+require('../routes/productPayment')(router);
 console.log('Routes loaded');
 
 // Use the router

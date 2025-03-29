@@ -72,19 +72,10 @@ router.get('/payment/verify/:reference', async (req, res) => {
   }
 });
 
-// POST route for Paystack callback (payment success or failure)
 // router.get('/payment/callback', async (req, res) => {
 //   try {
 //     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 //     const { trxref, reference } = req.query;
-
-//       // Access postId from metadata (found inside paymentData)
-//       const postId = paymentData.metadata?.postId || 'defaultPostId';
-
-//     if (!postId) {
-//       console.error('Post ID is missing or invalid');
-//       return res.status(400).json({ error: 'Post ID is missing from metadata' });
-//     }
 
 //     // If either trxref or reference is missing, return an error
 //     if (!trxref || !reference) {
@@ -93,7 +84,6 @@ router.get('/payment/verify/:reference', async (req, res) => {
 
 //     // Log incoming request for debugging
 //     console.log('Callback Query:', req.query);
-//     console.log('PostId from metadata:', postId);
 
 //     // Verify the payment using Paystack's verify endpoint
 //     const response = await axios.get(
@@ -107,12 +97,29 @@ router.get('/payment/verify/:reference', async (req, res) => {
 
 //     const paymentData = response.data.data;
 
+//     // Ensure postId is available in metadata
+//     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
+//     const userId = paymentData.metadata?.userId; // Access userId from metadata
+
+//     if (!postId) {
+//       console.error('Post ID is missing or invalid');
+//       return res.status(400).json({ error: 'Post ID is missing from metadata' });
+//     }
+
 //     // Check if payment was successful
 //     if (paymentData.status === 'success') {
 //       console.log('Payment verified successfully:', paymentData);
 
+//       // Update the post as paid in the PostModel
+//       await Post.updateOne({ _id: postId }, { paid: true });
+
+//       await User.updateOne(
+//         { _id: userId },
+//         { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
+//       );
+
 //       // Redirect to the post page
-//       res.redirect(`http://localhost:3000/blog/${postId}`);
+//       res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
 //       return; // Ensure no further code runs after redirect
 
 //     } else {
@@ -124,66 +131,6 @@ router.get('/payment/verify/:reference', async (req, res) => {
 //     return res.status(500).json({ error: 'Internal Server Error' });
 //   }
 // });
-
-router.get('/payment/callback', async (req, res) => {
-  try {
-    const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-    const { trxref, reference } = req.query;
-
-    // If either trxref or reference is missing, return an error
-    if (!trxref || !reference) {
-      return res.status(400).json({ error: 'Invalid callback data' });
-    }
-
-    // Log incoming request for debugging
-    console.log('Callback Query:', req.query);
-
-    // Verify the payment using Paystack's verify endpoint
-    const response = await axios.get(
-      `https://api.paystack.co/transaction/verify/${reference}`,
-      {
-        headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-        },
-      }
-    );
-
-    const paymentData = response.data.data;
-
-    // Ensure postId is available in metadata
-    const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
-    const userId = paymentData.metadata?.userId; // Access userId from metadata
-
-    if (!postId) {
-      console.error('Post ID is missing or invalid');
-      return res.status(400).json({ error: 'Post ID is missing from metadata' });
-    }
-
-    // Check if payment was successful
-    if (paymentData.status === 'success') {
-      console.log('Payment verified successfully:', paymentData);
-
-      // Update the post as paid in the PostModel
-      await Post.updateOne({ _id: postId }, { paid: true });
-
-      await User.updateOne(
-        { _id: userId },
-        { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
-      );
-
-      // Redirect to the post page
-      res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
-      return; // Ensure no further code runs after redirect
-
-    } else {
-      console.error('Payment verification failed:', paymentData);
-      return res.status(400).json({ error: 'Payment verification failed' });
-    }
-  } catch (err) {
-    console.error('Error handling payment callback:', err.message, err);
-    return res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 
 router.post("/payment/status", async (req, res) => {
   const { reference, postId, userId } = req.body; // Payment reference, postId, and userId from the client
@@ -270,7 +217,5 @@ router.post("/payment/status", async (req, res) => {
     });
   }
 });
-
-
 
 module.exports = router;

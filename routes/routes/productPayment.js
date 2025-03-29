@@ -22,6 +22,7 @@ router.post("/products/payment", async (req, res) => {
     const metadata = {
       userId,
       cartItems,
+      type: "product_purchase",
     };
 
     // Initialize Paystack payment

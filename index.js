@@ -47,12 +47,14 @@ const subscriptionRoutes = require('./routes/routes/subscription');
 const searchRoutes = require('./routes/routes/search'); 
 const paymentRoutes = require('./routes/routes/payment'); 
 const productRoutes = require('./routes/routes/product'); 
+const productPaymentRoutes = require('./routes/routes/productPayment')
 
 const app = express();
 
 // Use environment variables for configuration
 const PORT = process.env.PORT || 3007;
 const DB_URL = process.env.DB_URL || "mongodb://127.0.0.1:27017/camila-blog";
+// const DB_URL = "mongodb://127.0.0.1:27017/camila-blog";
 const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret';
 
 // Connect to MongoDB
@@ -97,6 +99,7 @@ app.use('/api', subscriptionRoutes);
 app.use('/api', searchRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', productRoutes);
+app.use('/api', productPaymentRoutes);
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {

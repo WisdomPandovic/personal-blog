@@ -48,6 +48,46 @@ router.post('/payment', async (req, res) => {
   }
 });
 
+router.post("/products/payment", async (req, res) => {
+  const { amount, email, userId, cartItems } = req.body;
+
+  if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
+    return res.status(400).json({ error: "Invalid payment data." });
+  }
+
+  try {
+    const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+    // Store cart items in metadata
+    const metadata = {
+      userId,
+      cartItems,
+      type: "product_purchase",
+    };
+
+    // Initialize Paystack payment
+    const response = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email,
+        amount: amount * 100, // Convert to kobo
+        metadata,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    res.status(200).json({ authorization_url: response.data.data.authorization_url });
+  } catch (err) {
+    console.error("Error initializing payment:", err);
+    res.status(500).json({ error: "Payment initialization failed" });
+  }
+});
+
 // GET route to verify payment status
 router.get('/payment/verify/:reference', async (req, res) => {
   const { reference } = req.params;
@@ -215,6 +255,97 @@ router.post("/payment/status", async (req, res) => {
       success: false,
       message: "An error occurred while verifying payment.",
     });
+  }
+});
+
+router.get("/payment/callback", async (req, res) => {
+  const { reference } = req.query;
+
+  if (!reference) {
+    return res.status(400).json({ error: "Invalid callback data" });
+  }
+
+  try {
+    const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+    // Verify payment with Paystack
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+      }
+    );
+
+    const paymentData = response.data.data;
+
+    // Ensure postId is available in metadata
+    const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
+    const userId = paymentData.metadata?.userId; // Access userId from metadata
+
+    if (!postId) {
+      console.error('Post ID is missing or invalid');
+      return res.status(400).json({ error: 'Post ID is missing from metadata' });
+    }
+
+    if (paymentData.status === "success") {
+      const { cartItems, type} = paymentData.metadata; // ✅ Extract postId 
+
+      if (type === "product_purchase") {
+        // Save order for product purchase
+        const newOrder = new Order({
+          userId,
+          items: cartItems,
+          totalAmount: paymentData.amount / 100, // Convert from kobo
+          paymentReference: reference,
+          status: "paid",
+        });
+
+        await newOrder.save();
+
+        // Redirect to order confirmation page
+        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
+      }
+      else if (type === "blog_subscription") { 
+         // Update the post as paid in the PostModel
+        await Post.updateOne({ _id: postId }, { paid: true });
+
+        await User.updateOne(
+          { _id: userId },
+          { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
+        );
+
+        // Redirect to the post page
+        res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
+        return; // Ensure no further code runs after redirect
+      }
+      else {
+        // Unknown type, redirect to a generic success page
+        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-success`);
+      }
+    } else {
+      // If payment fails, redirect to failure page
+      return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+    }
+  } catch (err) {
+    console.error("Error verifying payment:", err);
+    return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+  }
+});
+
+// GET order details by orderId
+router.get("/orders/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.status(200).json({ order });
+  } catch (err) {
+    console.error("Error fetching order:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

@@ -67,10 +67,12 @@ router.post("/products/payment", async (req, res) => {
       cartItems,
       type: "product_purchase",
       deliveryMethod,
-      deliveryFee,
-      address: deliveryMethod === "delivery" ? address : "Pickup",
-      postalCode,  // Add postal code here
-      phoneNumber,
+      ...(deliveryMethod === "delivery" && { 
+        address, 
+        postalCode, 
+        phoneNumber, 
+        deliveryFee 
+      })
     };
 
     // Initialize Paystack payment

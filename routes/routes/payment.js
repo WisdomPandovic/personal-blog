@@ -247,7 +247,7 @@ router.get("/payment/callback", async (req, res) => {
     }
 
     if (paymentData.status === "success") {
-      const { cartItems, type} = paymentData.metadata; // ✅ Extract postId 
+      const { cartItems, type, deliveryMethod, phoneNumber} = paymentData.metadata; 
 
       if (type === "product_purchase") {
         // Save order for product purchase
@@ -255,14 +255,11 @@ router.get("/payment/callback", async (req, res) => {
           userId,
           items: cartItems,
           totalAmount: paymentData.amount / 100, // Convert from kobo
-          deliveryMethod: metadata.deliveryMethod, // Ensure delivery method is stored
-          deliveryFee: metadata.deliveryFee || 0, // Default to 0 if not provided
-          address: metadata.address || null, 
-          postalCode: metadata.postalCode || null, 
-          phoneNumber: metadata.phoneNumber, 
           paymentReference: reference,
           status: "paid",
-        });        
+          deliveryMethod, // 
+          phoneNumber, 
+        });
 
         await newOrder.save();
 

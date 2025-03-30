@@ -367,21 +367,22 @@ router.get("/orders/:orderId", async (req, res) => {
 });
 
 router.post("/webhook/paystack", async (req, res) => {
-  console.log("Received Webhook Data:", req.body);
+  console.log("🔹 Received Paystack Webhook Data:", req.body);
 
-  const { metadata, reference, status } = req.body.data;
+  const { metadata, reference, status } = req.body.data || {};
 
   if (!metadata) {
-      console.error("Error: Metadata missing from Paystack webhook");
+      console.error("❌ Error: Metadata missing from Paystack webhook");
       return res.status(400).json({ error: "Missing metadata" });
   }
 
+  console.log("✅ Extracted Metadata:", metadata);
+  console.log("🛑 Full Paystack Webhook Response:", JSON.stringify(req.body, null, 2));
+
   const { userId, cartItems, deliveryMethod, address, postalCode, phoneNumber, deliveryFee } = metadata;
 
-  console.log("Extracted Metadata:", metadata);
-
   if (!phoneNumber || !deliveryMethod) {
-      console.error("Error: Phone number and delivery method missing from metadata.");
+      console.error("❌ Error: Phone number and delivery method missing from metadata.");
       return res.status(400).json({ error: "Phone number and delivery method are required." });
   }
 
@@ -389,7 +390,7 @@ router.post("/webhook/paystack", async (req, res) => {
       const newOrder = new Order({
           userId,
           items: cartItems,
-          totalAmount: req.body.data.amount / 100, // Convert from kobo to base currency
+          totalAmount: req.body.data.amount / 100, // Convert from kobo to Naira
           deliveryMethod,
           address,
           postalCode,
@@ -399,10 +400,11 @@ router.post("/webhook/paystack", async (req, res) => {
           status,
       });
 
+      console.log("✅ Saving order to database:", newOrder);
       await newOrder.save();
       res.status(201).json({ message: "Order saved successfully." });
   } catch (error) {
-      console.error("Error saving order:", error);
+      console.error("❌ Error saving order:", error);
       res.status(500).json({ error: "Error saving order" });
   }
 });

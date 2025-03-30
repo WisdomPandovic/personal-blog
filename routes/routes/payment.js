@@ -50,7 +50,7 @@ router.post('/payment', async (req, res) => {
 });
 
 router.post("/products/payment", async (req, res) => {
-  const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address } = req.body;
+  const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address, postalCode, phoneNumber } = req.body;
 
   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
     return res.status(400).json({ error: "Invalid payment data." });
@@ -69,6 +69,8 @@ router.post("/products/payment", async (req, res) => {
       deliveryMethod,
       deliveryFee,
       address: deliveryMethod === "delivery" ? address : "Pickup",
+      postalCode,  // Add postal code here
+      phoneNumber,
     };
 
     // Initialize Paystack payment

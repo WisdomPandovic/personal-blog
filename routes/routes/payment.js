@@ -88,7 +88,7 @@ router.post("/products/payment", async (req, res) => {
       {
         email,
         amount: totalAmount * 100, // Convert to kobo
-        metadata,
+        metadata: JSON.stringify(metadata),
       },
       {
         headers: {
@@ -367,40 +367,38 @@ router.get("/orders/:orderId", async (req, res) => {
 });
 
 router.post("/webhook/paystack", async (req, res) => {
-  console.log("🔹 Received Paystack Webhook Data:", req.body);
+  console.log("🔹 FULL PAYSTACK WEBHOOK DATA:", JSON.stringify(req.body, null, 2));
 
-  const { metadata, reference, status } = req.body.data || {};
-
-  if (!metadata) {
-      console.error("❌ Error: Metadata missing from Paystack webhook");
-      return res.status(400).json({ error: "Missing metadata" });
+  const { data } = req.body;
+  if (!data) {
+      console.error("❌ Error: No `data` object found in webhook.");
+      return res.status(400).json({ error: "Invalid webhook data" });
   }
 
+  const { metadata, reference, status } = data;
+  
   console.log("✅ Extracted Metadata:", metadata);
-  console.log("🛑 Full Paystack Webhook Response:", JSON.stringify(req.body, null, 2));
 
-  const { userId, cartItems, deliveryMethod, address, postalCode, phoneNumber, deliveryFee } = metadata;
-
-  if (!phoneNumber || !deliveryMethod) {
-      console.error("❌ Error: Phone number and delivery method missing from metadata.");
-      return res.status(400).json({ error: "Phone number and delivery method are required." });
+  if (!metadata || !metadata.phoneNumber || !metadata.deliveryMethod) {
+      console.error("❌ Metadata is missing required fields.");
+      return res.status(400).json({ error: "Missing required fields in metadata" });
   }
 
   try {
       const newOrder = new Order({
-          userId,
-          items: cartItems,
-          totalAmount: req.body.data.amount / 100, // Convert from kobo to Naira
-          deliveryMethod,
-          address,
-          postalCode,
-          phoneNumber,
-          deliveryFee,
+          userId: metadata.userId,
+          items: metadata.cartItems,
+          totalAmount: data.amount / 100, // Convert from kobo to Naira
+          deliveryMethod: metadata.deliveryMethod,
+          address: metadata.address,
+          postalCode: metadata.postalCode,
+          phoneNumber: metadata.phoneNumber,
+          deliveryFee: metadata.deliveryFee,
           paymentReference: reference,
           status,
       });
 
-      console.log("✅ Saving order to database:", newOrder);
+      console.log("✅ Saving Order:", newOrder);
       await newOrder.save();
       res.status(201).json({ message: "Order saved successfully." });
   } catch (error) {

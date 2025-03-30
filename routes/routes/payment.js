@@ -56,7 +56,7 @@ router.post("/products/payment", async (req, res) => {
     return res.status(400).json({ error: "Invalid payment data." });
   }
 
-   if (!phoneNumber || !deliveryMethod) {
+  if (!phoneNumber || !deliveryMethod) {
     return res.status(400).json({ error: "Phone number and delivery method are required." });
 }
 
@@ -78,6 +78,9 @@ router.post("/products/payment", async (req, res) => {
         deliveryFee 
       })
     };
+
+    console.log("Received Order Data:", req.body);
+    console.log("Metadata being sent to Paystack:", metadata);
 
     // Initialize Paystack payment
     const response = await axios.post(
@@ -360,6 +363,47 @@ router.get("/orders/:orderId", async (req, res) => {
   } catch (err) {
     console.error("Error fetching order:", err);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.post("/webhook/paystack", async (req, res) => {
+  console.log("Received Webhook Data:", req.body);
+
+  const { metadata, reference, status } = req.body.data;
+
+  if (!metadata) {
+      console.error("Error: Metadata missing from Paystack webhook");
+      return res.status(400).json({ error: "Missing metadata" });
+  }
+
+  const { userId, cartItems, deliveryMethod, address, postalCode, phoneNumber, deliveryFee } = metadata;
+
+  console.log("Extracted Metadata:", metadata);
+
+  if (!phoneNumber || !deliveryMethod) {
+      console.error("Error: Phone number and delivery method missing from metadata.");
+      return res.status(400).json({ error: "Phone number and delivery method are required." });
+  }
+
+  try {
+      const newOrder = new Order({
+          userId,
+          items: cartItems,
+          totalAmount: req.body.data.amount / 100, // Convert from kobo to base currency
+          deliveryMethod,
+          address,
+          postalCode,
+          phoneNumber,
+          deliveryFee,
+          paymentReference: reference,
+          status,
+      });
+
+      await newOrder.save();
+      res.status(201).json({ message: "Order saved successfully." });
+  } catch (error) {
+      console.error("Error saving order:", error);
+      res.status(500).json({ error: "Error saving order" });
   }
 });
 

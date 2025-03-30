@@ -56,6 +56,10 @@ router.post("/products/payment", async (req, res) => {
     return res.status(400).json({ error: "Invalid payment data." });
   }
 
+   if (!phoneNumber || !deliveryMethod) {
+    return res.status(400).json({ error: "Phone number and delivery method are required." });
+}
+
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 

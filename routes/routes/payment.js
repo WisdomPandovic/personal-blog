@@ -50,7 +50,7 @@ router.post('/payment', async (req, res) => {
 });
 
 router.post("/products/payment", async (req, res) => {
-  const { amount, email, userId, cartItems } = req.body;
+  const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address } = req.body;
 
   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
     return res.status(400).json({ error: "Invalid payment data." });
@@ -59,11 +59,16 @@ router.post("/products/payment", async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
+    const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
+
     // Store cart items in metadata
     const metadata = {
       userId,
       cartItems,
       type: "product_purchase",
+      deliveryMethod,
+      deliveryFee,
+      address: deliveryMethod === "delivery" ? address : "Pickup",
     };
 
     // Initialize Paystack payment
@@ -71,7 +76,7 @@ router.post("/products/payment", async (req, res) => {
       "https://api.paystack.co/transaction/initialize",
       {
         email,
-        amount: amount * 100, // Convert to kobo
+        amount: totalAmount * 100, // Convert to kobo
         metadata,
       },
       {

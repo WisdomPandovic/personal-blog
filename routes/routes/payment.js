@@ -57,9 +57,13 @@ router.post("/products/payment", async (req, res) => {
     return res.status(400).json({ error: "Invalid payment data." });
   }
 
-  if (!phoneNumber || !deliveryMethod) {
-    return res.status(400).json({ error: "Phone number and delivery method are required." });
-}
+  if (!deliveryMethod) {
+    return res.status(400).json({ error: "Delivery method is required." });
+  }
+
+  if (deliveryMethod === "delivery" && !phoneNumber) {
+    return res.status(400).json({ error: "Phone number is required for delivery." });
+  }
 
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
@@ -249,59 +253,27 @@ router.get("/payment/callback", async (req, res) => {
     if (paymentData.status === "success") {
       const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee} = paymentData.metadata; 
 
-      // if (type === "product_purchase") {
-      //    // Ensure delivery fee is a valid number, default to 0 if undefined
-      //    const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
-
-      //   // Save order for product purchase
-      //   const newOrder = new Order({
-      //     userId,
-      //     items: cartItems,
-      //     totalAmount: paymentData.amount / 100, // Convert from kobo
-      //     paymentReference: reference,
-      //     status: "paid",
-      //     deliveryMethod, // 
-      //     phoneNumber, 
-      //     deliveryFee: finalDeliveryFee,
-      //   });
-
-      //   await newOrder.save();
-
-      //   // Redirect to order confirmation page
-      //   return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
-      // }
-
       if (type === "product_purchase") {
-        // Ensure delivery fee is a valid number, default to 0 if undefined
-        const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
-    
-        // Check if required fields are present for delivery
-        if (deliveryMethod === "delivery" && !phoneNumber) {
-            return res.status(400).json({ error: "Phone number is required for delivery." });
-        }
-    
-        // Create order object
-        const orderData = {
-            userId,
-            items: cartItems,
-            totalAmount: paymentData.amount / 100, // Convert from kobo
-            paymentReference: reference,
-            status: "paid",
-            deliveryMethod,
-            deliveryFee: finalDeliveryFee,
-        };
-    
-        // Only include phoneNumber if delivery is selected
-        if (deliveryMethod === "delivery") {
-            orderData.phoneNumber = phoneNumber;
-        }
-    
-        const newOrder = new Order(orderData);
+         // Ensure delivery fee is a valid number, default to 0 if undefined
+         const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
+
+        // Save order for product purchase
+        const newOrder = new Order({
+          userId,
+          items: cartItems,
+          totalAmount: paymentData.amount / 100, // Convert from kobo
+          paymentReference: reference,
+          status: "paid",
+          deliveryMethod, // 
+          phoneNumber, 
+          deliveryFee: finalDeliveryFee,
+        });
+
         await newOrder.save();
-    
+
         // Redirect to order confirmation page
         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
-    }    
+      }
       else if (type === "blog_subscription") { 
          // Update the post as paid in the PostModel
         await Post.updateOne({ _id: postId }, { paid: true });

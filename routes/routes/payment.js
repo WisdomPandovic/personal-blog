@@ -291,12 +291,13 @@ router.get("/payment/callback", async (req, res) => {
         // });
 
         console.log("Cart Items Before Order Creation:", cartItems);
+        console.log("Image URL Before Saving to Database:", item.image);
 
         const newOrder = new Order({
           userId,
           items: cartItems.map(item => ({
             title: item.title,
-             image: item.image,     // ✅ Ensure the correct image is stored
+            image: item.image,  // ✅ Ensure the correct image is stored
             price: item.price,
             quantity: item.quantity,
             selectedColor: item.selectedColor,

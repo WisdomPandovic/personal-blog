@@ -262,6 +262,9 @@ router.get("/payment/callback", async (req, res) => {
 
     const paymentData = response.data.data;
 
+      // Log the metadata received from Paystack
+  console.log("Payment Data Metadata:", JSON.stringify(paymentData.metadata, null, 2));
+
     // Ensure postId is available in metadata
     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
     const userId = paymentData.metadata?.userId; // Access userId from metadata

@@ -296,7 +296,7 @@ router.get("/payment/callback", async (req, res) => {
           userId,
           items: cartItems.map(item => ({
             title: item.title,
-            image: encodeURIComponent(item.image),   // ✅ Ensure the correct image is stored
+             image: item.image,     // ✅ Ensure the correct image is stored
             price: item.price,
             quantity: item.quantity,
             selectedColor: item.selectedColor,

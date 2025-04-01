@@ -4,6 +4,7 @@ const router = express.Router();
 const Post = require("../../models/post");
 const User = require("../../models/user");
 const Order = require("../../models/order");
+const sendConfirmationEmail = require("../../utils/emailService");
 
 // Load environment variables
 require('dotenv').config();
@@ -110,6 +111,17 @@ router.post("/products/payment", async (req, res) => {
       }
     );
     console.log("✅ Paystack Response:", response.data);
+
+     // Send a confirmation email
+     const emailSubject = 'Product Payment';
+     const emailText = `Hello,\n\nThank you for ordering out product. You will be updated on the order process soon.\n\nBest regards,\nCamila Aguila Team`;
+
+     try {
+       await sendConfirmationEmail(email, emailSubject, emailText);
+       console.log('Confirmation email sent successfully');
+     } catch (error) {
+       console.error('Error sending confirmation email:', error);
+     }
 
     res.status(200).json({ authorization_url: response.data.data.authorization_url });
   } catch (err) {

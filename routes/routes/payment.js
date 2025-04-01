@@ -70,25 +70,12 @@ router.post("/products/payment", async (req, res) => {
 
     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
 
-    // Store cart items in metadata
-    // const metadata = {
-    //   userId,
-    //   cartItems,
-    //   type: "product_purchase",
-    //   deliveryMethod,
-    //   ...(deliveryMethod === "delivery" && { 
-    //     address, 
-    //     postalCode, 
-    //     phoneNumber, 
-    //     deliveryFee 
-    //   })
-    // };
-
+    // Explicitly encode the image URLs to preserve their original format
     const metadata = {
       userId,
       cartItems: cartItems.map(item => ({
         title: item.title,
-        image: item.image, // ✅ Ensure the correct image is stored
+        image: encodeURIComponent(item.image), // ✅ Encode the image URL
         price: item.price,
         quantity: item.quantity,
         selectedColor: item.selectedColor,
@@ -103,7 +90,6 @@ router.post("/products/payment", async (req, res) => {
         deliveryFee
       })
     };
-
 
     console.log("Received Order Data:", req.body);
     console.log("Metadata being sent to Paystack:", metadata);
@@ -131,6 +117,75 @@ router.post("/products/payment", async (req, res) => {
     res.status(500).json({ error: "Payment initialization failed" });
   }
 });
+
+// router.post("/products/payment", async (req, res) => {
+//   console.log("🔍 Incoming Request Body:", req.body);
+//   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address, postalCode, phoneNumber } = req.body;
+
+//   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
+//     return res.status(400).json({ error: "Invalid payment data." });
+//   }
+
+//   if (!deliveryMethod) {
+//     return res.status(400).json({ error: "Delivery method is required." });
+//   }
+
+//   if (deliveryMethod === "delivery" && !phoneNumber) {
+//     return res.status(400).json({ error: "Phone number is required for delivery." });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
+
+//     const metadata = {
+//       userId,
+//       cartItems: cartItems.map(item => ({
+//         title: item.title,
+//         image: item.image, // ✅ Ensure the correct image is stored
+//         price: item.price,
+//         quantity: item.quantity,
+//         selectedColor: item.selectedColor,
+//         selectedSize: item.selectedSize,
+//       })),
+//       type: "product_purchase",
+//       deliveryMethod,
+//       ...(deliveryMethod === "delivery" && {
+//         address,
+//         postalCode,
+//         phoneNumber,
+//         deliveryFee
+//       })
+//     };
+
+
+//     console.log("Received Order Data:", req.body);
+//     console.log("Metadata being sent to Paystack:", metadata);
+
+//     // Initialize Paystack payment
+//     const response = await axios.post(
+//       "https://api.paystack.co/transaction/initialize",
+//       {
+//         email,
+//         amount: totalAmount * 100, // Convert to kobo
+//         metadata: JSON.stringify(metadata),
+//       },
+//       {
+//         headers: {
+//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+//           "Content-Type": "application/json",
+//         },
+//       }
+//     );
+//     console.log("✅ Paystack Response:", response.data);
+
+//     res.status(200).json({ authorization_url: response.data.data.authorization_url });
+//   } catch (err) {
+//     console.error("Error initializing payment:", err);
+//     res.status(500).json({ error: "Payment initialization failed" });
+//   }
+// });
 
 // GET route to verify payment status
 router.get('/payment/verify/:reference', async (req, res) => {

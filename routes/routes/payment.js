@@ -3,7 +3,7 @@ const axios = require('axios');
 const router = express.Router();
 const Post = require("../../models/post");
 const User = require("../../models/user");
-const Order = require("../../models/order"); 
+const Order = require("../../models/order");
 
 // Load environment variables
 require('dotenv').config();
@@ -71,18 +71,39 @@ router.post("/products/payment", async (req, res) => {
     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
 
     // Store cart items in metadata
+    // const metadata = {
+    //   userId,
+    //   cartItems,
+    //   type: "product_purchase",
+    //   deliveryMethod,
+    //   ...(deliveryMethod === "delivery" && { 
+    //     address, 
+    //     postalCode, 
+    //     phoneNumber, 
+    //     deliveryFee 
+    //   })
+    // };
+
     const metadata = {
       userId,
-      cartItems,
+      cartItems: cartItems.map(item => ({
+        title: item.title,
+        image: item.image, // ✅ Ensure the correct image is stored
+        price: item.price,
+        quantity: item.quantity,
+        selectedColor: item.selectedColor,
+        selectedSize: item.selectedSize,
+      })),
       type: "product_purchase",
       deliveryMethod,
-      ...(deliveryMethod === "delivery" && { 
-        address, 
-        postalCode, 
-        phoneNumber, 
-        deliveryFee 
+      ...(deliveryMethod === "delivery" && {
+        address,
+        postalCode,
+        phoneNumber,
+        deliveryFee
       })
     };
+
 
     console.log("Received Order Data:", req.body);
     console.log("Metadata being sent to Paystack:", metadata);
@@ -102,7 +123,7 @@ router.post("/products/payment", async (req, res) => {
         },
       }
     );
-    console.log("✅ Paystack Response:", response.data); 
+    console.log("✅ Paystack Response:", response.data);
 
     res.status(200).json({ authorization_url: response.data.data.authorization_url });
   } catch (err) {
@@ -251,31 +272,60 @@ router.get("/payment/callback", async (req, res) => {
     }
 
     if (paymentData.status === "success") {
-      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee} = paymentData.metadata; 
+      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee } = paymentData.metadata;
 
       if (type === "product_purchase") {
-         // Ensure delivery fee is a valid number, default to 0 if undefined
-         const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
+        // Ensure delivery fee is a valid number, default to 0 if undefined
+        const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
 
         // Save order for product purchase
+        // const newOrder = new Order({
+        //   userId,
+        //   items: cartItems,
+        //   totalAmount: paymentData.amount / 100, // Convert from kobo
+        //   paymentReference: reference,
+        //   status: "paid",
+        //   deliveryMethod, // 
+        //   phoneNumber, 
+        //   deliveryFee: finalDeliveryFee,
+        // });
+
+        console.log("Cart Items Before Order Creation:", cartItems);
+
         const newOrder = new Order({
           userId,
-          items: cartItems,
+          items: cartItems.map(item => ({
+            title: item.title,
+            image: item.image,  // ✅ Ensure the correct image is stored
+            price: item.price,
+            quantity: item.quantity,
+            selectedColor: item.selectedColor,
+            selectedSize: item.selectedSize,
+          })),
           totalAmount: paymentData.amount / 100, // Convert from kobo
           paymentReference: reference,
           status: "paid",
-          deliveryMethod, // 
-          phoneNumber, 
+          deliveryMethod,
+          phoneNumber,
           deliveryFee: finalDeliveryFee,
         });
-
-        await newOrder.save();
+        // Log the newOrder object to inspect the values
+        console.log("New Order before Saving:", JSON.stringify(newOrder, null, 2));
+        // await newOrder.save();
+        // Then save the new order
+        newOrder.save()
+          .then(savedOrder => {
+            console.log("Order saved successfully:", savedOrder);
+          })
+          .catch(error => {
+            console.error("Error saving order:", error);
+          });
 
         // Redirect to order confirmation page
         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
       }
-      else if (type === "blog_subscription") { 
-         // Update the post as paid in the PostModel
+      else if (type === "blog_subscription") {
+        // Update the post as paid in the PostModel
         await Post.updateOne({ _id: postId }, { paid: true });
 
         await User.updateOne(
@@ -323,39 +373,39 @@ router.post("/webhook/paystack", async (req, res) => {
 
   const { data } = req.body;
   if (!data) {
-      console.error("❌ Error: No `data` object found in webhook.");
-      return res.status(400).json({ error: "Invalid webhook data" });
+    console.error("❌ Error: No `data` object found in webhook.");
+    return res.status(400).json({ error: "Invalid webhook data" });
   }
 
   const { metadata, reference, status } = data;
-  
+
   console.log("✅ Extracted Metadata:", metadata);
 
   if (!metadata || !metadata.phoneNumber || !metadata.deliveryMethod) {
-      console.error("❌ Metadata is missing required fields.");
-      return res.status(400).json({ error: "Missing required fields in metadata" });
+    console.error("❌ Metadata is missing required fields.");
+    return res.status(400).json({ error: "Missing required fields in metadata" });
   }
 
   try {
-      const newOrder = new Order({
-          userId: metadata.userId,
-          items: metadata.cartItems,
-          totalAmount: data.amount / 100, // Convert from kobo to Naira
-          deliveryMethod: metadata.deliveryMethod,
-          address: metadata.address,
-          postalCode: metadata.postalCode,
-          phoneNumber: metadata.phoneNumber,
-          deliveryFee: metadata.deliveryFee,
-          paymentReference: reference,
-          status,
-      });
+    const newOrder = new Order({
+      userId: metadata.userId,
+      items: metadata.cartItems,
+      totalAmount: data.amount / 100, // Convert from kobo to Naira
+      deliveryMethod: metadata.deliveryMethod,
+      address: metadata.address,
+      postalCode: metadata.postalCode,
+      phoneNumber: metadata.phoneNumber,
+      deliveryFee: metadata.deliveryFee,
+      paymentReference: reference,
+      status,
+    });
 
-      console.log("✅ Saving Order:", newOrder);
-      await newOrder.save();
-      res.status(201).json({ message: "Order saved successfully." });
+    console.log("✅ Saving Order:", newOrder);
+    await newOrder.save();
+    res.status(201).json({ message: "Order saved successfully." });
   } catch (error) {
-      console.error("❌ Error saving order:", error);
-      res.status(500).json({ error: "Error saving order" });
+    console.error("❌ Error saving order:", error);
+    res.status(500).json({ error: "Error saving order" });
   }
 });
 

@@ -330,17 +330,14 @@ router.get("/payment/callback", async (req, res) => {
         // Ensure delivery fee is a valid number, default to 0 if undefined
         const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
 
-        // Save order for product purchase
-        // const newOrder = new Order({
-        //   userId,
-        //   items: cartItems,
-        //   totalAmount: paymentData.amount / 100, // Convert from kobo
-        //   paymentReference: reference,
-        //   status: "paid",
-        //   deliveryMethod, // 
-        //   phoneNumber, 
-        //   deliveryFee: finalDeliveryFee,
-        // });
+        // Re-encode the image URLs in cartItems
+    const updatedCartItems = cartItems.map(item => ({
+      ...item,
+      image: encodeURIComponent(item.image) // Re-encode the URL to restore %2F
+    }));
+
+      // Log the updated cart items to verify the re-encoded URLs
+      console.log("Updated Cart Items After Re-encoding:", JSON.stringify(updatedCartItems, null, 2));
 
         console.log("Cart Items Before Order Creation:", cartItems);
 

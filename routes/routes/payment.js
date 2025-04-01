@@ -242,6 +242,229 @@ router.post("/payment/status", async (req, res) => {
   }
 });
 
+// router.get("/payment/callback", async (req, res) => {
+//   const { reference } = req.query;
+
+//   if (!reference) {
+//     return res.status(400).json({ error: "Invalid callback data" });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     // Verify payment with Paystack
+//     const response = await axios.get(
+//       `https://api.paystack.co/transaction/verify/${reference}`,
+//       {
+//         headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+//       }
+//     );
+
+//     const paymentData = response.data.data;
+
+//       // Log the metadata received from Paystack
+//   console.log("Payment Data Metadata:", JSON.stringify(paymentData.metadata, null, 2));
+
+//     // Ensure postId is available in metadata
+//     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
+//     const userId = paymentData.metadata?.userId; // Access userId from metadata
+
+//     if (!postId) {
+//       console.error('Post ID is missing or invalid');
+//       return res.status(400).json({ error: 'Post ID is missing from metadata' });
+//     }
+
+//     if (paymentData.status === "success") {
+//       const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee } = paymentData.metadata;
+
+//       if (type === "product_purchase") {
+//         // Ensure delivery fee is a valid number, default to 0 if undefined
+//         const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
+
+//         // Save order for product purchase
+//         // const newOrder = new Order({
+//         //   userId,
+//         //   items: cartItems,
+//         //   totalAmount: paymentData.amount / 100, // Convert from kobo
+//         //   paymentReference: reference,
+//         //   status: "paid",
+//         //   deliveryMethod, // 
+//         //   phoneNumber, 
+//         //   deliveryFee: finalDeliveryFee,
+//         // });
+
+//         console.log("Cart Items Before Order Creation:", cartItems);
+//         router.get("/payment/callback", async (req, res) => {
+//   const { reference } = req.query;
+
+//   if (!reference) {
+//     return res.status(400).json({ error: "Invalid callback data" });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     // Verify payment with Paystack
+//     const response = await axios.get(
+//       `https://api.paystack.co/transaction/verify/${reference}`,
+//       {
+//         headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+//       }
+//     );
+
+//     const paymentData = response.data.data;
+
+//     // Ensure postId is available in metadata
+//     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
+//     const userId = paymentData.metadata?.userId; // Access userId from metadata
+
+//     if (!postId) {
+//       console.error('Post ID is missing or invalid');
+//       return res.status(400).json({ error: 'Post ID is missing from metadata' });
+//     }
+
+//     if (paymentData.status === "success") {
+//       const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee } = paymentData.metadata;
+
+//       if (type === "product_purchase") {
+//         // Ensure delivery fee is a valid number, default to 0 if undefined
+//         const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
+
+//         // Re-encode the image URLs in cartItems
+//     const updatedCartItems = cartItems.map(item => ({
+//       ...item,
+//       image: encodeURIComponent(item.image) // Re-encode the URL to restore %2F
+//     }));
+
+//       // Log the updated cart items to verify the re-encoded URLs
+//       console.log("Updated Cart Items After Re-encoding:", JSON.stringify(updatedCartItems, null, 2));
+
+//         console.log("Cart Items Before Order Creation:", cartItems);
+
+//         // Loop through cartItems to log the image URL for each item
+//         cartItems.forEach(item => {
+//           console.log("Image URL Before Saving to Database:", item.image);  // Log each item's image
+//         });        
+
+//         const newOrder = new Order({
+//           userId,
+//           items: cartItems.map(item => ({
+//             title: item.title,
+//             image: item.image,  // ✅ Ensure the correct image is stored
+//             price: item.price,
+//             quantity: item.quantity,
+//             selectedColor: item.selectedColor,
+//             selectedSize: item.selectedSize,
+//           })),
+//           totalAmount: paymentData.amount / 100, // Convert from kobo
+//           paymentReference: reference,
+//           status: "paid",
+//           deliveryMethod,
+//           phoneNumber,
+//           deliveryFee: finalDeliveryFee,
+//         });
+//         // Log the newOrder object to inspect the values
+//         console.log("New Order before Saving:", JSON.stringify(newOrder, null, 2));
+//         // await newOrder.save();
+//         // Then save the new order
+//         newOrder.save()
+//           .then(savedOrder => {
+//             console.log("Order saved successfully:", savedOrder);
+//           })
+//           .catch(error => {
+//             console.error("Error saving order:", error);
+//           });
+
+//         // Redirect to order confirmation page
+//         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
+//       }
+//       else if (type === "blog_subscription") {
+//         // Update the post as paid in the PostModel
+//         await Post.updateOne({ _id: postId }, { paid: true });
+
+//         await User.updateOne(
+//           { _id: userId },
+//           { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
+//         );
+
+//         // Redirect to the post page
+//         res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
+//         return; // Ensure no further code runs after redirect
+//       }
+//       else {
+//         // Unknown type, redirect to a generic success page
+//         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-success`);
+//       }
+//     } else {
+//       // If payment fails, redirect to failure page
+//       return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+//     }
+//   } catch (err) {
+//     console.error("Error verifying payment:", err);
+//     return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+//   }
+// });
+
+//         const newOrder = new Order({
+//           userId,
+//           items: cartItems.map(item => ({
+//             title: item.title,
+//             image: item.image,  // ✅ Ensure the correct image is stored
+//             price: item.price,
+//             quantity: item.quantity,
+//             selectedColor: item.selectedColor,
+//             selectedSize: item.selectedSize,
+//           })),
+//           totalAmount: paymentData.amount / 100, // Convert from kobo
+//           paymentReference: reference,
+//           status: "paid",
+//           deliveryMethod,
+//           phoneNumber,
+//           deliveryFee: finalDeliveryFee,
+//         });
+//         // Log the newOrder object to inspect the values
+//         console.log("New Order before Saving:", JSON.stringify(newOrder, null, 2));
+//         // await newOrder.save();
+//         // Then save the new order
+//         newOrder.save()
+//           .then(savedOrder => {
+//             console.log("Order saved successfully:", savedOrder);
+//           })
+//           .catch(error => {
+//             console.error("Error saving order:", error);
+//           });
+
+//         // Redirect to order confirmation page
+//         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
+//       }
+//       else if (type === "blog_subscription") {
+//         // Update the post as paid in the PostModel
+//         await Post.updateOne({ _id: postId }, { paid: true });
+
+//         await User.updateOne(
+//           { _id: userId },
+//           { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
+//         );
+
+//         // Redirect to the post page
+//         res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
+//         return; // Ensure no further code runs after redirect
+//       }
+//       else {
+//         // Unknown type, redirect to a generic success page
+//         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-success`);
+//       }
+//     } else {
+//       // If payment fails, redirect to failure page
+//       return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+//     }
+//   } catch (err) {
+//     console.error("Error verifying payment:", err);
+//     return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+//   }
+// });
+
+
 router.get("/payment/callback", async (req, res) => {
   const { reference } = req.query;
 
@@ -262,57 +485,8 @@ router.get("/payment/callback", async (req, res) => {
 
     const paymentData = response.data.data;
 
-      // Log the metadata received from Paystack
-  console.log("Payment Data Metadata:", JSON.stringify(paymentData.metadata, null, 2));
-
-    // Ensure postId is available in metadata
-    const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
-    const userId = paymentData.metadata?.userId; // Access userId from metadata
-
-    if (!postId) {
-      console.error('Post ID is missing or invalid');
-      return res.status(400).json({ error: 'Post ID is missing from metadata' });
-    }
-
-    if (paymentData.status === "success") {
-      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee } = paymentData.metadata;
-
-      if (type === "product_purchase") {
-        // Ensure delivery fee is a valid number, default to 0 if undefined
-        const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
-
-        // Save order for product purchase
-        // const newOrder = new Order({
-        //   userId,
-        //   items: cartItems,
-        //   totalAmount: paymentData.amount / 100, // Convert from kobo
-        //   paymentReference: reference,
-        //   status: "paid",
-        //   deliveryMethod, // 
-        //   phoneNumber, 
-        //   deliveryFee: finalDeliveryFee,
-        // });
-
-        console.log("Cart Items Before Order Creation:", cartItems);
-        router.get("/payment/callback", async (req, res) => {
-  const { reference } = req.query;
-
-  if (!reference) {
-    return res.status(400).json({ error: "Invalid callback data" });
-  }
-
-  try {
-    const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
-    // Verify payment with Paystack
-    const response = await axios.get(
-      `https://api.paystack.co/transaction/verify/${reference}`,
-      {
-        headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
-      }
-    );
-
-    const paymentData = response.data.data;
+    // Log the metadata received from Paystack
+    console.log("Payment Data Metadata:", JSON.stringify(paymentData.metadata, null, 2));
 
     // Ensure postId is available in metadata
     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
@@ -331,26 +505,25 @@ router.get("/payment/callback", async (req, res) => {
         const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
 
         // Re-encode the image URLs in cartItems
-    const updatedCartItems = cartItems.map(item => ({
-      ...item,
-      image: encodeURIComponent(item.image) // Re-encode the URL to restore %2F
-    }));
+        const updatedCartItems = cartItems.map(item => ({
+          ...item,
+          image: encodeURIComponent(item.image), // Re-encode the URL to restore %2F
+        }));
 
-      // Log the updated cart items to verify the re-encoded URLs
-      console.log("Updated Cart Items After Re-encoding:", JSON.stringify(updatedCartItems, null, 2));
+        // Log the updated cart items to verify the re-encoded URLs
+        console.log("Updated Cart Items After Re-encoding:", JSON.stringify(updatedCartItems, null, 2));
 
-        console.log("Cart Items Before Order Creation:", cartItems);
+        // Log each item's image URL before saving
+        updatedCartItems.forEach(item => {
+          console.log("Image URL Before Saving to Database:", item.image);
+        });
 
-        // Loop through cartItems to log the image URL for each item
-        cartItems.forEach(item => {
-          console.log("Image URL Before Saving to Database:", item.image);  // Log each item's image
-        });        
-
+        // Create new order with re-encoded image URLs
         const newOrder = new Order({
           userId,
-          items: cartItems.map(item => ({
+          items: updatedCartItems.map(item => ({
             title: item.title,
-            image: item.image,  // ✅ Ensure the correct image is stored
+            image: item.image, // Use the re-encoded URL
             price: item.price,
             quantity: item.quantity,
             selectedColor: item.selectedColor,
@@ -363,22 +536,17 @@ router.get("/payment/callback", async (req, res) => {
           phoneNumber,
           deliveryFee: finalDeliveryFee,
         });
+
         // Log the newOrder object to inspect the values
         console.log("New Order before Saving:", JSON.stringify(newOrder, null, 2));
-        // await newOrder.save();
-        // Then save the new order
-        newOrder.save()
-          .then(savedOrder => {
-            console.log("Order saved successfully:", savedOrder);
-          })
-          .catch(error => {
-            console.error("Error saving order:", error);
-          });
+
+        // Save the new order
+        const savedOrder = await newOrder.save();
+        console.log("Order saved successfully:", savedOrder);
 
         // Redirect to order confirmation page
-        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
-      }
-      else if (type === "blog_subscription") {
+        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${savedOrder._id}`);
+      } else if (type === "blog_subscription") {
         // Update the post as paid in the PostModel
         await Post.updateOne({ _id: postId }, { paid: true });
 
@@ -388,69 +556,8 @@ router.get("/payment/callback", async (req, res) => {
         );
 
         // Redirect to the post page
-        res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
-        return; // Ensure no further code runs after redirect
-      }
-      else {
-        // Unknown type, redirect to a generic success page
-        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-success`);
-      }
-    } else {
-      // If payment fails, redirect to failure page
-      return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
-    }
-  } catch (err) {
-    console.error("Error verifying payment:", err);
-    return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
-  }
-});
-
-        const newOrder = new Order({
-          userId,
-          items: cartItems.map(item => ({
-            title: item.title,
-            image: item.image,  // ✅ Ensure the correct image is stored
-            price: item.price,
-            quantity: item.quantity,
-            selectedColor: item.selectedColor,
-            selectedSize: item.selectedSize,
-          })),
-          totalAmount: paymentData.amount / 100, // Convert from kobo
-          paymentReference: reference,
-          status: "paid",
-          deliveryMethod,
-          phoneNumber,
-          deliveryFee: finalDeliveryFee,
-        });
-        // Log the newOrder object to inspect the values
-        console.log("New Order before Saving:", JSON.stringify(newOrder, null, 2));
-        // await newOrder.save();
-        // Then save the new order
-        newOrder.save()
-          .then(savedOrder => {
-            console.log("Order saved successfully:", savedOrder);
-          })
-          .catch(error => {
-            console.error("Error saving order:", error);
-          });
-
-        // Redirect to order confirmation page
-        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
-      }
-      else if (type === "blog_subscription") {
-        // Update the post as paid in the PostModel
-        await Post.updateOne({ _id: postId }, { paid: true });
-
-        await User.updateOne(
-          { _id: userId },
-          { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
-        );
-
-        // Redirect to the post page
-        res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
-        return; // Ensure no further code runs after redirect
-      }
-      else {
+        return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
+      } else {
         // Unknown type, redirect to a generic success page
         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-success`);
       }

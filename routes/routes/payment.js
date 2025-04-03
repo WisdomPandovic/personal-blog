@@ -43,6 +43,17 @@ router.post('/payment', async (req, res) => {
 
     const authorization_url = response.data.data.authorization_url;
 
+    // Send a confirmation email
+    const emailSubject = 'Contact Form Submission';
+    const emailText = `Hello,\n\nThank you for subscribing to the post. You will be redirected to the post details page soon.\n\nBest regards,\nCamila Aguila Team`;
+
+    try {
+      await sendConfirmationEmail(email, emailSubject, emailText);
+      console.log('Confirmation email sent successfully');
+    } catch (error) {
+      console.error('Error sending confirmation email:', error);
+    }
+
     res.status(200).json({ authorization_url });
   } catch (err) {
     console.error('Error initializing payment:', err);
@@ -112,16 +123,46 @@ router.post("/products/payment", async (req, res) => {
     );
     console.log("✅ Paystack Response:", response.data);
 
-     // Send a confirmation email
-     const emailSubject = 'Product Payment';
-     const emailText = `Hello,\n\nThank you for ordering out product. You will be updated on the order process soon.\n\nBest regards,\nCamila Aguila Team`;
+    // Send a confirmation email
+    //  const emailSubject = 'Product Payment';
+    //  const emailText = `Hello,\n\nThank you for ordering our product. You will be updated on the order process soon.\n\nBest regards,\nCamila Aguila Team`;
 
-     try {
-       await sendConfirmationEmail(email, emailSubject, emailText);
-       console.log('Confirmation email sent successfully');
-     } catch (error) {
-       console.error('Error sending confirmation email:', error);
-     }
+    //  try {
+    //    await sendConfirmationEmail(email, emailSubject, emailText);
+    //    console.log('Confirmation email sent successfully');
+    //  } catch (error) {
+    //    console.error('Error sending confirmation email:', error);
+    //  }
+
+    const emailSubject = 'Order Confirmation - Camila Aguila';
+
+    const emailText = `Hello,
+
+Thank you for your purchase! Your order has been received and is now being processed.
+
+📦 Order Details:
+- Order Reference: ${response.data.data.reference}
+- Order Email: ${email}
+- Delivery Method: ${deliveryMethod}
+${deliveryMethod === "delivery" ? `- Address: ${address}\n- Postal Code: ${postalCode}\n- Phone: ${phoneNumber}` : ""}
+
+🛍 Items Ordered:
+${cartItems.map(item => `- ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}`).join("\n")}
+
+Total Amount: $${totalAmount}
+
+You will receive further updates on your order soon. If you have any issues or want to request a return, please use your order reference number and email to contact us.
+
+Best regards,  
+Camila Aguila Team`;
+
+    try {
+      await sendConfirmationEmail(email, emailSubject, emailText);
+      console.log('Confirmation email sent successfully');
+    } catch (error) {
+      console.error('Error sending confirmation email:', error);
+    }
+
 
     res.status(200).json({ authorization_url: response.data.data.authorization_url });
   } catch (err) {
@@ -129,75 +170,6 @@ router.post("/products/payment", async (req, res) => {
     res.status(500).json({ error: "Payment initialization failed" });
   }
 });
-
-// router.post("/products/payment", async (req, res) => {
-//   console.log("🔍 Incoming Request Body:", req.body);
-//   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address, postalCode, phoneNumber } = req.body;
-
-//   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
-//     return res.status(400).json({ error: "Invalid payment data." });
-//   }
-
-//   if (!deliveryMethod) {
-//     return res.status(400).json({ error: "Delivery method is required." });
-//   }
-
-//   if (deliveryMethod === "delivery" && !phoneNumber) {
-//     return res.status(400).json({ error: "Phone number is required for delivery." });
-//   }
-
-//   try {
-//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
-//     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
-
-//     const metadata = {
-//       userId,
-//       cartItems: cartItems.map(item => ({
-//         title: item.title,
-//         image: item.image, // ✅ Ensure the correct image is stored
-//         price: item.price,
-//         quantity: item.quantity,
-//         selectedColor: item.selectedColor,
-//         selectedSize: item.selectedSize,
-//       })),
-//       type: "product_purchase",
-//       deliveryMethod,
-//       ...(deliveryMethod === "delivery" && {
-//         address,
-//         postalCode,
-//         phoneNumber,
-//         deliveryFee
-//       })
-//     };
-
-
-//     console.log("Received Order Data:", req.body);
-//     console.log("Metadata being sent to Paystack:", metadata);
-
-//     // Initialize Paystack payment
-//     const response = await axios.post(
-//       "https://api.paystack.co/transaction/initialize",
-//       {
-//         email,
-//         amount: totalAmount * 100, // Convert to kobo
-//         metadata: JSON.stringify(metadata),
-//       },
-//       {
-//         headers: {
-//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-//           "Content-Type": "application/json",
-//         },
-//       }
-//     );
-//     console.log("✅ Paystack Response:", response.data);
-
-//     res.status(200).json({ authorization_url: response.data.data.authorization_url });
-//   } catch (err) {
-//     console.error("Error initializing payment:", err);
-//     res.status(500).json({ error: "Payment initialization failed" });
-//   }
-// });
 
 // GET route to verify payment status
 router.get('/payment/verify/:reference', async (req, res) => {
@@ -349,6 +321,7 @@ router.get("/payment/callback", async (req, res) => {
 
         const newOrder = new Order({
           userId,
+          email,
           items: cartItems.map(item => ({
             title: item.title,
             image: item.image,  // ✅ Ensure the correct image is stored
@@ -367,7 +340,7 @@ router.get("/payment/callback", async (req, res) => {
 
         // await newOrder.save();
         const savedOrder = await newOrder.save();
-        console.log("Saved Order:", savedOrder);        ``
+        console.log("Saved Order:", savedOrder); ``
 
         // Redirect to order confirmation page
         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
@@ -563,5 +536,33 @@ router.post("/webhook/paystack", async (req, res) => {
 //     return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
 //   }
 // });
+
+router.get('/orders/verify-return', async (req, res) => {
+  try {
+    const { orderNumber, orderEmail } = req.body;
+
+    if (!orderNumber || !orderEmail) {
+      return res.status(400).json({ message: 'Order number and email are required' });
+    }
+
+    const order = await Order.findOne({ reference: orderNumber, email: orderEmail });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json({
+      reference: order.reference,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      email: order.email,
+      items: order.items,
+      createdAt: order.createdAt,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
+
 
 module.exports = router;

@@ -544,30 +544,76 @@ router.post("/webhook/paystack", async (req, res) => {
 //   }
 // });
 
+// router.post('/orders/verify-return', async (req, res) => {
+//   try {
+//     const { orderNumber, orderEmail } = req.body;
+
+//     if (!orderNumber || !orderEmail) {
+//       return res.status(400).json({ message: 'Order number and email are required' });
+//     }
+
+//     const order = await Order.findOne({ reference: orderNumber, email: orderEmail });
+
+//     if (!order) {
+//       return res.status(404).json({ message: 'Order not found' });
+//     }
+
+//     res.json({
+//       reference: order.reference,
+//       status: order.status,
+//       totalAmount: order.totalAmount,
+//       email: order.email,
+//       items: order.items,
+//       createdAt: order.createdAt,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Internal server error', error: error.message });
+//   }
+// });
+
 router.get('/orders/verify-return', async (req, res) => {
   try {
-    const { orderNumber, orderEmail } = req.body;
+      const { orderNumber, orderEmail } = req.query;
 
-    if (!orderNumber || !orderEmail) {
-      return res.status(400).json({ message: 'Order number and email are required' });
-    }
+      // Validate input
+      if (!orderNumber || !orderEmail) {
+          return res.status(400).json({ message: 'Order number and email are required' });
+      }
 
-    const order = await Order.findOne({ reference: orderNumber, email: orderEmail });
+      // Log received parameters for debugging
+      console.log("Received Order Number:", orderNumber);
+      console.log("Received Order Email:", orderEmail);
 
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
+      // Log the query object
+      console.log("Query Object:", { paymentReference: orderNumber, email: orderEmail });
 
-    res.json({
-      reference: order.reference,
-      status: order.status,
-      totalAmount: order.totalAmount,
-      email: order.email,
-      items: order.items,
-      createdAt: order.createdAt,
-    });
+      // Query the order by paymentReference and email
+      console.log("Executing Query...");
+      const order = await Order.findOne({
+          paymentReference: orderNumber,
+          email: orderEmail
+      }).exec();
+
+      // Log the query result
+      console.log("Query Result:", order);
+
+      // Handle case where no order is found
+      if (!order) {
+          return res.status(404).json({ message: 'Order not found' });
+      }
+
+      // Return the order details as JSON
+      res.json({
+          reference: order.paymentReference,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          items: order.items,
+          createdAt: order.createdAt,
+      });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error: error.message });
+      // Log the full error details for debugging
+      console.error("Error verifying order:", error);
+      res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 });
 

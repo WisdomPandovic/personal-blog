@@ -85,6 +85,7 @@ router.post("/products/payment", async (req, res) => {
     // Explicitly encode the image URLs to preserve their original format
     const metadata = {
       userId,
+      email,
       cartItems: cartItems.map(item => ({
         title: item.title,
         image: encodeURIComponent(item.image), // ✅ Encode the image URL
@@ -304,10 +305,16 @@ router.get("/payment/callback", async (req, res) => {
     // Ensure postId is available in metadata
     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
     const userId = paymentData.metadata?.userId; // Access userId from metadata
+    const email = paymentData.metadata?.email;
 
     if (!postId) {
       console.error('Post ID is missing or invalid');
       return res.status(400).json({ error: 'Post ID is missing from metadata' });
+    }
+
+    if (!email) {
+      console.error('Email is missing in metadata');
+      return res.status(400).json({ error: 'Email is missing from metadata' });
     }
 
     if (paymentData.status === "success") {

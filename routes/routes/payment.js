@@ -571,7 +571,7 @@ router.post("/webhook/paystack", async (req, res) => {
 //   }
 // });
 
-router.get('/orders/verify-return', async (req, res) => {
+router.get('/verify-return', async (req, res) => {
   try {
       const { orderNumber, orderEmail } = req.query;
 
@@ -605,6 +605,7 @@ router.get('/orders/verify-return', async (req, res) => {
       // Return the order details as JSON
       res.json({
           reference: order.paymentReference,
+          email: order.email,
           status: order.status,
           totalAmount: order.totalAmount,
           items: order.items,
@@ -617,5 +618,87 @@ router.get('/orders/verify-return', async (req, res) => {
   }
 });
 
+router.post('/process-return', async (req, res) => {
+  const { orderNumber, returnOption } = req.body;
+
+  // Validate input
+  if (!orderNumber || !returnOption) {
+    return res.status(400).json({ message: "Order number and return option are required." });
+  }
+
+  try {
+    // Find the order by order number (paymentReference)
+    const order = await Order.findOne({ paymentReference: orderNumber });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    // Check if the order is eligible for a return based on its status
+    if (order.status === 'canceled') {
+      return res.status(400).json({ message: "This order has been canceled and cannot be returned." });
+    }
+
+    // Handle the return based on the selected option
+    switch (returnOption) {
+      case 'refund':
+        if (order.status !== 'paid' && order.status !== 'delivered') {
+          return res.status(400).json({ 
+            message: `Refunds are only available for orders with a status of 'paid' or 'delivered'. Your order's current status is '${order.status}'.` 
+          });
+        }
+        order.status = 'refund_requested'; // Update status to reflect that refund is being requested
+        break;
+      case 'exchange':
+        if (order.status === 'shipped' || order.status === 'delivered') {
+          return res.status(400).json({ message: "Exchanges are not allowed after the order is shipped or delivered." });
+        }
+        order.status = 'exchange_requested'; // Update status for exchange request
+        break;
+      case 'store-credit':
+        if (order.status === 'shipped' || order.status === 'delivered') {
+          return res.status(400).json({ message: "Store credit is not available for orders that have been shipped or delivered." });
+        }
+        order.status = 'store_credit_issued'; // Issue store credit
+        break;
+      default:
+        return res.status(400).json({ message: "Invalid return option." });
+    }
+
+    // Save the updated order
+    await order.save();
+
+    // Prepare email content
+    const emailSubject = 'Return Request Processed - Camila Aguila';
+    const emailText = `Hello ${order.email},\n\n` +
+      `Thank you for contacting us regarding your order.\n\n` +
+      `We have successfully processed your return request. Here are the details:\n\n` +
+      `📦 Order Details:\n` +
+      `- Order Reference: ${order.paymentReference}\n` +
+      `- Order Email: ${order.email}\n` +
+      `- Items Ordered:\n` +
+      `${order.items.map(item => `  - ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity})`).join("\n")}\n\n` +
+      `🛍 Return Option: ${returnOption}\n\n` +
+      `You will be notified once the return has been fully processed. If you have any issues, please contact us using your order reference number.\n\n` +
+      `Best regards,\n` +
+      `Camila Aguila Team`;
+
+    // Send confirmation email
+    try {
+      await sendConfirmationEmail(order.email, emailSubject, emailText);
+      console.log('Confirmation email sent successfully');
+    } catch (emailError) {
+      console.error('Error sending confirmation email:', emailError);
+    }
+
+    // Respond with success
+    res.status(200).json({
+      message: `Return request for order ${order.paymentReference} has been processed as ${returnOption}.`
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error, please try again later." });
+  }
+});
 
 module.exports = router;

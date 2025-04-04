@@ -184,15 +184,12 @@ const emailHtml = `
     <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
   </div>
 `;
-
-
     try {
-      await sendConfirmationEmail(email, emailSubject, emailText, emailHtml);
+      await sendConfirmationEmail(email, emailSubject, emailHtml);
       console.log('Confirmation email sent successfully');
     } catch (error) {
       console.error('Error sending confirmation email:', error);
     }
-
 
     res.status(200).json({ authorization_url: response.data.data.authorization_url });
   } catch (err) {

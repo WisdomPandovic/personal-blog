@@ -16,7 +16,7 @@ const sendEmail = (to, subject, text, html = null) => {
         to,
         subject,
         text,
-        ...(html && { html })
+        html,
     };
 
     return new Promise((resolve, reject) => {

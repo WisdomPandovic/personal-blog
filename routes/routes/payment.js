@@ -124,41 +124,70 @@ router.post("/products/payment", async (req, res) => {
     );
     console.log("✅ Paystack Response:", response.data);
 
-    // Send a confirmation email
-    //  const emailSubject = 'Product Payment';
-    //  const emailText = `Hello,\n\nThank you for ordering our product. You will be updated on the order process soon.\n\nBest regards,\nCamila Aguila Team`;
-
-    //  try {
-    //    await sendConfirmationEmail(email, emailSubject, emailText);
-    //    console.log('Confirmation email sent successfully');
-    //  } catch (error) {
-    //    console.error('Error sending confirmation email:', error);
-    //  }
-
     const emailSubject = 'Order Confirmation - Camila Aguila';
 
-    const emailText = `Hello,
+//     const emailText = `Hello,
 
-Thank you for your purchase! Your order has been received and is now being processed.
+// Thank you for your purchase! Your order has been received and is now being processed.
 
-📦 Order Details:
-- Order Reference: ${response.data.data.reference}
-- Order Email: ${email}
-- Delivery Method: ${deliveryMethod}
-${deliveryMethod === "delivery" ? `- Address: ${address}\n- Postal Code: ${postalCode}\n- Phone: ${phoneNumber}` : ""}
+// 📦 Order Details:
+// - Order Reference: ${response.data.data.reference}
+// - Order Email: ${email}
+// - Delivery Method: ${deliveryMethod}
+// ${deliveryMethod === "delivery" ? `- Address: ${address}\n- Postal Code: ${postalCode}\n- Phone: ${phoneNumber}` : ""}
 
-🛍 Items Ordered:
-${cartItems.map(item => `- ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}`).join("\n")}
+// 🛍 Items Ordered:
+// ${cartItems.map(item => `- ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}`).join("\n")}
 
-Total Amount: $${totalAmount}
+// Total Amount: $${totalAmount}
 
-You will receive further updates on your order soon. If you have any issues or want to request a return, please use your order reference number and email to contact us.
+// You will receive further updates on your order soon. If you have any issues or want to request a return, please use your order reference number and email to contact us.
 
-Best regards,  
-Camila Aguila Team`;
+// Best regards,  
+// Camila Aguila Team`;
+
+const emailHtml = `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+    <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
+    <p>Hello,</p>
+    <p>Thank you for your purchase! Your order has been received and is now being processed.</p>
+
+    <h3>📦 Order Details</h3>
+    <p><strong>Order Reference:</strong> ${response.data.data.reference}</p>
+    <p><strong>Email:</strong> ${email}</p>
+    <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
+    ${
+      deliveryMethod === "delivery"
+        ? `<p><strong>Address:</strong> ${address}<br/><strong>Postal Code:</strong> ${postalCode}<br/><strong>Phone:</strong> ${phoneNumber}</p>`
+        : ""
+    }
+
+    <h3>🛍 Items Ordered</h3>
+    <ul>
+      ${cartItems
+        .map(
+          (item) => `
+        <li>${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}</li>`
+        )
+        .join("")}
+    </ul>
+
+    <p><strong>Total Amount:</strong> $${totalAmount}</p>
+
+    <p>If you have any issues or would like to request a return, click the button below:</p>
+
+    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request" 
+       style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;">
+       Start a Return Request
+    </a>
+
+    <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
+  </div>
+`;
+
 
     try {
-      await sendConfirmationEmail(email, emailSubject, emailText);
+      await sendConfirmationEmail(email, emailSubject, emailText, emailHtml);
       console.log('Confirmation email sent successfully');
     } catch (error) {
       console.error('Error sending confirmation email:', error);

@@ -159,6 +159,8 @@ const Post = require("../../models/post");
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const sendEmail = require("../../utils/emailService");
 
 router.get('/', (req, res) => {
     res.json({ msg: "This is my user index route" });
@@ -196,10 +198,31 @@ router.get('/users/:id', async (req, res) => {
     }
 });
 
-
 router.post("/users", async (req, res) => {
     try {
         const { username, email, phoneNumber, password, role } = req.body;
+
+        // Email format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: "Invalid email format." });
+        }
+
+        // Check if email is already used
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
+        if (existingUser) {
+            return res.status(400).json({ error: "Email is already registered." });
+        }
+
+        // Password validation
+        const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                error: "Password must be at least 8 characters long and contain at least one special character."
+            });
+        }
+
+        const verificationToken = crypto.randomBytes(32).toString("hex");
 
         const user = new User({
             username,
@@ -207,11 +230,24 @@ router.post("/users", async (req, res) => {
             phoneNumber,
             password,
             role,
+            isVerified: false,
+            verificationToken
         });
 
         await user.save();
 
-        res.json(user);
+         // Send verification email
+         const verificationLink = `${process.env.CLIENT_URL}/auth/verify-email?token=${verificationToken}`;
+         const html = `
+             <h3>Verify your email</h3>
+             <p>Click the link below to verify your email:</p>
+             <a href="${verificationLink}">${verificationLink}</a>
+         `;
+ 
+         await sendEmail(email, "Verify your email", html);
+
+        // res.json(user);
+        res.status(201).json({ msg: "User registered. Please check your email to verify your account." });
     } catch (err) {
         res.status(500).send(err.message);
     }
@@ -311,6 +347,10 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ msg: 'Invalid username or password' });
         }
 
+        if (!user.isVerified) {
+            return res.status(401).json({ msg: 'Please verify your email before logging in.' });
+        }        
+
         const payload = { userId: user._id, role: user.role, userEmail: user.email, };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
@@ -363,5 +403,24 @@ router.post('/admin/signin', async (req, res) => {
     }
 });
 
+router.get('/verify-email', async (req, res) => {
+    const { token } = req.query;
+
+    try {
+        const user = await User.findOne({ verificationToken: token });
+
+        if (!user) {
+            return res.status(400).json({ msg: 'Invalid or expired verification token.' });
+        }
+
+        user.isVerified = true;
+        user.verificationToken = null;
+        await user.save();
+
+        res.json({ msg: 'Email verified successfully!' });
+    } catch (err) {
+        res.status(500).json({ msg: 'Server error', error: err.message });
+    }
+});
 
 module.exports = router;

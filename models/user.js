@@ -40,6 +40,16 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'posts',  // Track the paid posts
   }],
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  verificationToken: {
+    type: String,
+  },
+  verificationTokenExpires: {
+    type: Date,
+  },
 });
 
 // Hash password before saving (using bcrypt with a reasonable salt rounds)

@@ -1,5 +1,3 @@
-
-
 require('dotenv').config();
 
 const User = require('../../models/user');
@@ -92,7 +90,7 @@ router.get('/users/:id', async (req, res) => {
 //              <p>Click the link below to verify your email:</p>
 //              <a href="${verificationLink}">${verificationLink}</a>
 //          `;
- 
+
 //          await sendEmail(email, "Verify your email", html);
 
 //         // res.json(user);
@@ -263,9 +261,9 @@ router.get('/verify-email', async (req, res) => {
         }
 
         // Check if the user is already verified
-    if (user.isVerified) {
-        return res.status(200).json({ msg: "Email already verified." });
-    }
+        if (user.isVerified === true) {
+            return res.status(200).json({ msg: "Email already verified." });
+        }
 
         user.isVerified = true;
         user.verificationToken = null;
@@ -277,9 +275,6 @@ router.get('/verify-email', async (req, res) => {
     }
 });
 
-
-
-// User Registration Route
 router.post("/users", async (req, res) => {
     try {
         const { username, email, phoneNumber, password, role } = req.body;
@@ -309,7 +304,7 @@ router.post("/users", async (req, res) => {
 
         const verificationToken = crypto.randomBytes(32).toString("hex");
 
-       // Hash password before saving
+        // Hash password before saving
         const salt = await bcrypt.genSalt(10); // Adjust salt rounds as needed
         const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -322,7 +317,7 @@ router.post("/users", async (req, res) => {
             username,
             email: email.toLowerCase(),
             phoneNumber,
-            password:hashedPassword,  // Save hashed password
+            password: hashedPassword,  // Save hashed password
             role,
             isVerified: false,
             verificationToken

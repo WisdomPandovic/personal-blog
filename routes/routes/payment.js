@@ -22,7 +22,7 @@ router.post('/payment', async (req, res) => {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
     // Initialize metadata object
-    const metadata = { postId, userId, type: "blog_subscription", };
+    const metadata = { email, postId, userId, type: "blog_subscription", };
 
     // Make a POST request to Paystack to initialize payment
     const response = await axios.post(
@@ -45,10 +45,20 @@ router.post('/payment', async (req, res) => {
 
     // Send a confirmation email
     const emailSubject = 'Contact Form Submission';
-    const emailText = `Hello,\n\nThank you for subscribing to the post. You will be redirected to the post details page soon.\n\nBest regards,\nCamila Aguila Team`;
+    const emailHtml = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">
+      <h2 style="color: #444;">Hello,</h2>
+      <p>Thank you for subscribing to the post.</p>
+      <p>You will be redirected to the post details page shortly after your payment is confirmed.</p>
+      <p>If you have any questions, feel free to reach out to us.</p>
+      <br/>
+      <p>Best regards,</p>
+      <p><strong>Camila Aguila Team</strong></p>
+    </div>
+  `;
 
     try {
-      await sendConfirmationEmail(email, emailSubject, emailText);
+      await sendConfirmationEmail(email, emailSubject, emailHtml);
       console.log('Confirmation email sent successfully');
     } catch (error) {
       console.error('Error sending confirmation email:', error);
@@ -126,58 +136,61 @@ router.post("/products/payment", async (req, res) => {
 
     const emailSubject = 'Order Confirmation - Camila Aguila';
 
-//     const emailText = `Hello,
+    //     const emailText = `Hello,
 
-// Thank you for your purchase! Your order has been received and is now being processed.
+    // Thank you for your purchase! Your order has been received and is now being processed.
 
-// 📦 Order Details:
-// - Order Reference: ${response.data.data.reference}
-// - Order Email: ${email}
-// - Delivery Method: ${deliveryMethod}
-// ${deliveryMethod === "delivery" ? `- Address: ${address}\n- Postal Code: ${postalCode}\n- Phone: ${phoneNumber}` : ""}
+    // 📦 Order Details:
+    // - Order Reference: ${response.data.data.reference}
+    // - Order Email: ${email}
+    // - Delivery Method: ${deliveryMethod}
+    // ${deliveryMethod === "delivery" ? `- Address: ${address}\n- Postal Code: ${postalCode}\n- Phone: ${phoneNumber}` : ""}
 
-// 🛍 Items Ordered:
-// ${cartItems.map(item => `- ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}`).join("\n")}
+    // 🛍 Items Ordered:
+    // ${cartItems.map(item => `- ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}`).join("\n")}
 
-// Total Amount: $${totalAmount}
+    // Total Amount: $${totalAmount}
 
-// You will receive further updates on your order soon. If you have any issues or want to request a return, please use your order reference number and email to contact us.
+    // You will receive further updates on your order soon. If you have any issues or want to request a return, please use your order reference number and email to contact us.
 
-// Best regards,  
-// Camila Aguila Team`;
+    // Best regards,  
+    // Camila Aguila Team`;
 
-const emailHtml = `
+    const emailHtml = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
     <p>Hello,</p>
     <p>Thank you for your purchase! Your order has been received and is now being processed.</p>
 
     <h3>📦 Order Details</h3>
-    <p><strong>Order Reference:</strong> ${response.data.data.reference}</p>
-    <p><strong>Email:</strong> ${email}</p>
-    <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
-    ${
-      deliveryMethod === "delivery"
-        ? `<p><strong>Address:</strong> ${address}<br/><strong>Postal Code:</strong> ${postalCode}<br/><strong>Phone:</strong> ${phoneNumber}</p>`
+    <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
+    <p><strong>Email:</strong> ${email || "N/A"}</p>
+    <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
+    ${deliveryMethod === "delivery"
+        ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
         : ""
-    }
+      }
 
     <h3>🛍 Items Ordered</h3>
     <ul>
-      ${cartItems
-        .map(
-          (item) => `
-        <li>${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}</li>`
-        )
-        .join("")}
+      ${Array.isArray(cartItems) && cartItems.length > 0
+        ? cartItems
+          .map(
+            (item) => `
+                  <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"}, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"}) - $${item.price || "0.00"}</li>`
+          )
+          .join("")
+        : "<li>No items ordered.</li>"
+      }
     </ul>
 
-    <p><strong>Total Amount:</strong> $${totalAmount}</p>
+    <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
 
     <p>If you have any issues or would like to request a return, click the button below:</p>
 
-    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request" 
-       style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;">
+    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""}" 
+       style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
+       aria-label="Start a Return Request">
        Start a Return Request
     </a>
 
@@ -599,48 +612,48 @@ router.post("/webhook/paystack", async (req, res) => {
 
 router.get('/verify-return', async (req, res) => {
   try {
-      const { orderNumber, orderEmail } = req.query;
+    const { orderNumber, orderEmail } = req.query;
 
-      // Validate input
-      if (!orderNumber || !orderEmail) {
-          return res.status(400).json({ message: 'Order number and email are required' });
-      }
+    // Validate input
+    if (!orderNumber || !orderEmail) {
+      return res.status(400).json({ message: 'Order number and email are required' });
+    }
 
-      // Log received parameters for debugging
-      console.log("Received Order Number:", orderNumber);
-      console.log("Received Order Email:", orderEmail);
+    // Log received parameters for debugging
+    console.log("Received Order Number:", orderNumber);
+    console.log("Received Order Email:", orderEmail);
 
-      // Log the query object
-      console.log("Query Object:", { paymentReference: orderNumber, email: orderEmail });
+    // Log the query object
+    console.log("Query Object:", { paymentReference: orderNumber, email: orderEmail });
 
-      // Query the order by paymentReference and email
-      console.log("Executing Query...");
-      const order = await Order.findOne({
-          paymentReference: orderNumber,
-          email: orderEmail
-      }).exec();
+    // Query the order by paymentReference and email
+    console.log("Executing Query...");
+    const order = await Order.findOne({
+      paymentReference: orderNumber,
+      email: orderEmail
+    }).exec();
 
-      // Log the query result
-      console.log("Query Result:", order);
+    // Log the query result
+    console.log("Query Result:", order);
 
-      // Handle case where no order is found
-      if (!order) {
-          return res.status(404).json({ message: 'Order not found' });
-      }
+    // Handle case where no order is found
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
 
-      // Return the order details as JSON
-      res.json({
-          reference: order.paymentReference,
-          email: order.email,
-          status: order.status,
-          totalAmount: order.totalAmount,
-          items: order.items,
-          createdAt: order.createdAt,
-      });
+    // Return the order details as JSON
+    res.json({
+      reference: order.paymentReference,
+      email: order.email,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      items: order.items,
+      createdAt: order.createdAt,
+    });
   } catch (error) {
-      // Log the full error details for debugging
-      console.error("Error verifying order:", error);
-      res.status(500).json({ message: 'Internal server error', error: error.message });
+    // Log the full error details for debugging
+    console.error("Error verifying order:", error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 });
 
@@ -669,8 +682,8 @@ router.post('/process-return', async (req, res) => {
     switch (returnOption) {
       case 'refund':
         if (order.status !== 'paid' && order.status !== 'delivered') {
-          return res.status(400).json({ 
-            message: `Refunds are only available for orders with a status of 'paid' or 'delivered'. Your order's current status is '${order.status}'.` 
+          return res.status(400).json({
+            message: `Refunds are only available for orders with a status of 'paid' or 'delivered'. Your order's current status is '${order.status}'.`
           });
         }
         order.status = 'refund_requested'; // Update status to reflect that refund is being requested

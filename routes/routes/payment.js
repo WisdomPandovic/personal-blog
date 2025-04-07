@@ -44,18 +44,19 @@ router.post('/payment', async (req, res) => {
     const authorization_url = response.data.data.authorization_url;
 
     // Send a confirmation email
-    const emailSubject = 'Contact Form Submission';
+    const emailSubject = `Subscription Confirmation for: ${postTitle}`;
     const emailHtml = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">
-      <h2 style="color: #444;">Hello,</h2>
-      <p>Thank you for subscribing to the post.</p>
-      <p>You will be redirected to the post details page shortly after your payment is confirmed.</p>
-      <p>If you have any questions, feel free to reach out to us.</p>
-      <br/>
-      <p>Best regards,</p>
-      <p><strong>Camila Aguila Team</strong></p>
-    </div>
-  `;
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">
+        <h2 style="color: #444;">Hello,</h2>
+        <p>Your access to <strong>"${postTitle}"</strong> has been successfully confirmed.</p>
+        <p>Thank you for subscribing to this post!</p>
+        <p>You will be redirected to the post details page shortly after your payment is verified.</p>
+        <p>If you have any questions, feel free to reach out to us at any time.</p>
+        <br/>
+        <p>Best regards,</p>
+        <p><strong>The Camila Aguila Team</strong></p>
+      </div>
+    `;
 
     try {
       await sendConfirmationEmail(email, emailSubject, emailHtml);

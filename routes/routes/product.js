@@ -1,5 +1,5 @@
 const Product = require("../../models/product");
-const authenticate = require('../../middleware/authenticate'); 
+const authenticate = require('../../middleware/authenticate');
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
 const multer = require("multer");
@@ -43,7 +43,7 @@ router.post("/product", async function (req, res) {
 	try {
 		console.log("Received request body:", req.body);
 
-		const { title, size, info, price, category, user, images, color, } = req.body;
+		const { title, size, info, price, category, user, images, color, stock = 0 } = req.body;
 
 		// Ensure all required fields are provided
 		if (!title) {
@@ -52,7 +52,7 @@ router.post("/product", async function (req, res) {
 		if (!info) {
 			return res.status(400).json({ message: "Info is required." });
 		}
-        if (!size) {
+		if (!size) {
 			return res.status(400).json({ message: "Size is required." });
 		}
 		if (!price) {
@@ -90,25 +90,34 @@ router.post("/product", async function (req, res) {
 		}
 
 		// Ensure images and video URLs are provided
-		const imagePaths = Array.isArray(images) ? images : [];
-		if (imagePaths.length === 0) {
-			return res.status(400).json({ msg: "At least one image URL is required." });
+		// const imagePaths = Array.isArray(images) ? images : [];
+		// if (imagePaths.length === 0) {
+		// 	return res.status(400).json({ msg: "At least one image URL is required." });
+		// }
+
+		if (!images || Object.keys(images).length === 0) {
+			return res.status(400).json({ msg: "Images field is required." });
 		}
 
-		// if (!video) {
-		// 	return res.status(400).json({ msg: "A video URL is required." });
-		// }
+		// Auto-determine product status based on stock
+		let status = stock > 0 ? "available" : "out_of_stock";
+
+		if (stock < 0) {
+			return res.status(400).json({ message: "Stock must be a non-negative number." });
+		}		
 
 		// Create a new post
 		const newProduct = new Product({
 			title,
-			images: imagePaths, // Accepting image URLs
+			images, // Accepting image URLs
 			color,
 			price,
 			category,
 			user,
-            info,
-            size,
+			info,
+			size,
+			stock,
+    status,
 		});
 
 		await newProduct.save();
@@ -128,23 +137,23 @@ router.post("/product", async function (req, res) {
 });
 
 router.get('/product/title/:title', async function (req, res) {
-    try {
-        const { title } = req.params;
+	try {
+		const { title } = req.params;
 
-        if (!title) {
-            return res.status(400).json({ message: "Title is required." });
-        }
+		if (!title) {
+			return res.status(400).json({ message: "Title is required." });
+		}
 
-        const product = await Product.findOne({ title: title }).populate("category").populate("user").lean();
+		const product = await Product.findOne({ title: title }).populate("category").populate("user").lean();
 
-        if (!product) {
-            return res.status(404).json({ message: "Product not found." });
-        }
+		if (!product) {
+			return res.status(404).json({ message: "Product not found." });
+		}
 
-        res.json(product);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+		res.json(product);
+	} catch (err) {
+		res.status(500).json({ message: err.message });
+	}
 });
 
 router.get('/product/category/:categoryId', async (req, res) => {
@@ -156,5 +165,105 @@ router.get('/product/category/:categoryId', async (req, res) => {
 		res.status(500).json({ error: 'Internal server error' });
 	}
 });
+
+// PUT - Replace entire product
+// router.put('/product/:id', async (req, res) => {
+// 	try {
+// 		const { id } = req.params;
+// 		const updateData = req.body;
+
+// 		if (!ObjectId.isValid(id)) {
+// 			return res.status(400).json({ message: "Invalid product ID." });
+// 		}
+
+// 		const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
+// 			new: true,
+// 			overwrite: true, // replaces the whole document
+// 			runValidators: true,
+// 		});
+
+// 		if (!updatedProduct) {
+// 			return res.status(404).json({ message: "Product not found." });
+// 		}
+
+// 		res.json({ success: true, message: "Product fully updated.", data: updatedProduct });
+// 	} catch (err) {
+// 		res.status(500).json({ message: err.message });
+// 	}
+// });
+
+router.patch('/product/:id', async (req, res) => {
+	try {
+		const { id } = req.params;
+		const updates = req.body;
+
+		if (!ObjectId.isValid(id)) {
+			return res.status(400).json({ message: "Invalid product ID." });
+		}
+
+		const product = await Product.findById(id);
+		if (!product) {
+			return res.status(404).json({ message: "Product not found." });
+		}
+
+		const updateData = { ...updates };
+
+		// Validate stock if provided
+		if (updates.stock !== undefined) {
+			if (typeof updates.stock !== 'number' || updates.stock < 0) {
+				return res.status(400).json({ message: "Stock must be a non-negative number." });
+			}
+
+			// Auto-update status ONLY if status wasn't explicitly sent
+			if (!updates.status) {
+				updateData.status = updates.stock > 0 ? 'available' : 'out_of_stock';
+			}
+		}
+
+		// Update product
+		const updatedProduct = await Product.findByIdAndUpdate(id, updateData, { new: true });
+		res.status(200).json({ success: true, message: "Product updated", data: updatedProduct });
+
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ message: err.message });
+	}
+});
+
+// PATCH - Update only specific fields
+router.patch('/product/:id', async (req, res) => {
+	try {
+		const { id } = req.params;
+		const updates = req.body;
+
+		if (!ObjectId.isValid(id)) {
+			return res.status(400).json({ message: "Invalid product ID." });
+		}
+
+		const product = await Product.findById(id);
+		if (!product) {
+			return res.status(404).json({ message: "Product not found." });
+		}
+
+		// Update stock if provided
+		if (updates.stock !== undefined) {
+			if (typeof updates.stock !== 'number' || updates.stock < 0) {
+				return res.status(400).json({ message: "Stock must be a non-negative number." });
+			}
+
+			// Set stock and update status accordingly
+			updates.status = updates.stock > 0 ? 'available' : 'out_of_stock';
+		}
+
+		// Update product
+		const updatedProduct = await Product.findByIdAndUpdate(id, updates, { new: true });
+		res.status(200).json({ success: true, message: "Product updated", data: updatedProduct });
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ message: err.message });
+	}
+});
+
+
 
 module.exports = router;

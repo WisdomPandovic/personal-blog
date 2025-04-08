@@ -31,6 +31,12 @@ const ProductSchema = new mongoose.Schema({
     color: [{ type: String, required: false, unique: false }],
     size: [{ type: String, required: true, unique: false }],
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'users', required: true },
+    stock: { type: Number, required: true, default: 0 },
+    status: {
+        type: String,
+        enum: ['available', 'unavailable', 'out_of_stock'],
+        default: 'available'
+      },      
     date: { type: Date, default: Date.now },
 });
 

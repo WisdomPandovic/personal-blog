@@ -310,67 +310,107 @@ router.post("/products/payment", async (req, res) => {
 
     const emailSubject = 'Order Confirmation - Camila Aguila';
 
-    //     const emailText = `Hello,
+//     const emailHtml = `
+//   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+//     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
+//     <p>Hello,</p>
+//     <p>Thank you for your purchase! Your order has been received and is now being processed.</p>
 
-    // Thank you for your purchase! Your order has been received and is now being processed.
+//     <h3>📦 Order Details</h3>
+//     <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
+//     <p><strong>Email:</strong> ${email || "N/A"}</p>
+//     <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
+//     ${deliveryMethod === "delivery"
+//         ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
+//         : ""
+//       }
 
-    // 📦 Order Details:
-    // - Order Reference: ${response.data.data.reference}
-    // - Order Email: ${email}
-    // - Delivery Method: ${deliveryMethod}
-    // ${deliveryMethod === "delivery" ? `- Address: ${address}\n- Postal Code: ${postalCode}\n- Phone: ${phoneNumber}` : ""}
+//     <h3>🛍 Items Ordered</h3>
+//     <ul>
+//       ${Array.isArray(cartItems) && cartItems.length > 0
+//         ? cartItems
+//           .map(
+//             (item) => `
+//                   <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"}, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"}) - $${item.price || "0.00"}</li>`
+//           )
+//           .join("")
+//         : "<li>No items ordered.</li>"
+//       }
+//     </ul>
 
-    // 🛍 Items Ordered:
-    // ${cartItems.map(item => `- ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}`).join("\n")}
+//     <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
 
-    // Total Amount: $${totalAmount}
+//     <p>If you have any issues or would like to request a return, click the button below:</p>
 
-    // You will receive further updates on your order soon. If you have any issues or want to request a return, please use your order reference number and email to contact us.
+//     <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""}" 
+//        style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
+//        aria-label="Start a Return Request">
+//        Start a Return Request
+//     </a>
 
-    // Best regards,  
-    // Camila Aguila Team`;
+//     <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
+//   </div>
+// `;
 
-    const emailHtml = `
+const emailHtml = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
     <p>Hello,</p>
-    <p>Thank you for your purchase! Your order has been received and is now being processed.</p>
+    <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${
+  isPreOrder
+    ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
+    : "Your order has been received and is now being processed."
+}</p>
 
     <h3>📦 Order Details</h3>
     <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
     <p><strong>Email:</strong> ${email || "N/A"}</p>
     <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
-    ${deliveryMethod === "delivery"
+    ${
+      deliveryMethod === "delivery"
         ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
         : ""
-      }
+    }
 
     <h3>🛍 Items Ordered</h3>
     <ul>
-      ${Array.isArray(cartItems) && cartItems.length > 0
-        ? cartItems
-          .map(
-            (item) => `
-                  <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"}, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"}) - $${item.price || "0.00"}</li>`
-          )
-          .join("")
-        : "<li>No items ordered.</li>"
+      ${
+        Array.isArray(cartItems) && cartItems.length > 0
+          ? cartItems
+              .map(
+                (item) => `
+                  <li>${item.title || "Untitled Item"} (Size: ${
+                  item.selectedSize || "N/A"
+                }, Color: ${item.selectedColor || "N/A"}, Qty: ${
+                  item.quantity || "N/A"
+                }) - $${item.price || "0.00"}</li>`
+              )
+              .join("")
+          : "<li>No items ordered.</li>"
       }
     </ul>
 
     <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
 
+    ${
+      !isPreOrder
+        ? `
     <p>If you have any issues or would like to request a return, click the button below:</p>
 
-    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""}" 
+    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${
+      response.data.data.reference || ""
+    }" 
        style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
        aria-label="Start a Return Request">
        Start a Return Request
-    </a>
+    </a>`
+        : ""
+    }
 
     <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
   </div>
 `;
+
     try {
       await sendConfirmationEmail(email, emailSubject, emailHtml);
       console.log('Confirmation email sent successfully');

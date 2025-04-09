@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 const Post = require("../../models/post");
+const Product = require("../../models/product");
 const User = require("../../models/user");
 const Order = require("../../models/order");
 const sendConfirmationEmail = require("../../utils/emailService");
@@ -72,6 +73,148 @@ router.post('/payment', async (req, res) => {
   }
 });
 
+// router.post("/products/payment", async (req, res) => {
+//   console.log("🔍 Incoming Request Body:", req.body);
+//   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address, postalCode, phoneNumber } = req.body;
+
+//   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
+//     return res.status(400).json({ error: "Invalid payment data." });
+//   }
+
+//   if (!deliveryMethod) {
+//     return res.status(400).json({ error: "Delivery method is required." });
+//   }
+
+//   if (deliveryMethod === "delivery" && !phoneNumber) {
+//     return res.status(400).json({ error: "Phone number is required for delivery." });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
+
+//     // Explicitly encode the image URLs to preserve their original format
+//     const metadata = {
+//       userId,
+//       email,
+//       cartItems: cartItems.map(item => ({
+//         title: item.title,
+//         image: encodeURIComponent(item.image), // ✅ Encode the image URL
+//         price: item.price,
+//         quantity: item.quantity,
+//         selectedColor: item.selectedColor,
+//         selectedSize: item.selectedSize,
+//       })),
+//       type: "product_purchase",
+//       deliveryMethod,
+//       ...(deliveryMethod === "delivery" && {
+//         address,
+//         postalCode,
+//         phoneNumber,
+//         deliveryFee
+//       })
+//     };
+
+//     console.log("Received Order Data:", req.body);
+//     console.log("Metadata being sent to Paystack:", metadata);
+
+//     // Initialize Paystack payment
+//     const response = await axios.post(
+//       "https://api.paystack.co/transaction/initialize",
+//       {
+//         email,
+//         amount: totalAmount * 100, // Convert to kobo
+//         metadata: JSON.stringify(metadata),
+//       },
+//       {
+//         headers: {
+//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+//           "Content-Type": "application/json",
+//         },
+//       }
+//     );
+//     console.log("✅ Paystack Response:", response.data);
+
+//     const emailSubject = 'Order Confirmation - Camila Aguila';
+
+//     //     const emailText = `Hello,
+
+//     // Thank you for your purchase! Your order has been received and is now being processed.
+
+//     // 📦 Order Details:
+//     // - Order Reference: ${response.data.data.reference}
+//     // - Order Email: ${email}
+//     // - Delivery Method: ${deliveryMethod}
+//     // ${deliveryMethod === "delivery" ? `- Address: ${address}\n- Postal Code: ${postalCode}\n- Phone: ${phoneNumber}` : ""}
+
+//     // 🛍 Items Ordered:
+//     // ${cartItems.map(item => `- ${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}`).join("\n")}
+
+//     // Total Amount: $${totalAmount}
+
+//     // You will receive further updates on your order soon. If you have any issues or want to request a return, please use your order reference number and email to contact us.
+
+//     // Best regards,  
+//     // Camila Aguila Team`;
+
+//     const emailHtml = `
+//   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+//     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
+//     <p>Hello,</p>
+//     <p>Thank you for your purchase! Your order has been received and is now being processed.</p>
+
+//     <h3>📦 Order Details</h3>
+//     <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
+//     <p><strong>Email:</strong> ${email || "N/A"}</p>
+//     <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
+//     ${deliveryMethod === "delivery"
+//         ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
+//         : ""
+//       }
+
+//     <h3>🛍 Items Ordered</h3>
+//     <ul>
+//       ${Array.isArray(cartItems) && cartItems.length > 0
+//         ? cartItems
+//           .map(
+//             (item) => `
+//                   <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"}, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"}) - $${item.price || "0.00"}</li>`
+//           )
+//           .join("")
+//         : "<li>No items ordered.</li>"
+//       }
+//     </ul>
+
+//     <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
+
+//     <p>If you have any issues or would like to request a return, click the button below:</p>
+
+//     <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""}" 
+//        style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
+//        aria-label="Start a Return Request">
+//        Start a Return Request
+//     </a>
+
+//     <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
+//   </div>
+// `;
+//     try {
+//       await sendConfirmationEmail(email, emailSubject, emailHtml);
+//       console.log('Confirmation email sent successfully');
+//     } catch (error) {
+//       console.error('Error sending confirmation email:', error);
+//     }
+
+//     res.status(200).json({ authorization_url: response.data.data.authorization_url });
+//   } catch (err) {
+//     console.error("Error initializing payment:", err);
+//     res.status(500).json({ error: "Payment initialization failed" });
+//   }
+// });
+
+// GET route to verify payment status
+
 router.post("/products/payment", async (req, res) => {
   console.log("🔍 Incoming Request Body:", req.body);
   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address, postalCode, phoneNumber } = req.body;
@@ -134,6 +277,26 @@ router.post("/products/payment", async (req, res) => {
       }
     );
     console.log("✅ Paystack Response:", response.data);
+
+    // Decrease stock based on selected color
+    for (let item of cartItems) {
+      const product = await Product.findById(item.productId); // Assuming `productId` is passed in the cart item
+      if (!product) {
+        return res.status(404).json({ error: `Product not found: ${item.productId}` });
+      }
+
+      // Find the color variant for the selected color
+      const colorVariant = product.colorStock.find(c => c.color === item.selectedColor);
+      if (colorVariant) {
+        if (colorVariant.stock < item.quantity) {
+          return res.status(400).json({ error: `Not enough stock for color ${item.selectedColor}.` });
+        }
+
+        // Deduct the stock
+        colorVariant.stock -= item.quantity;
+        await product.save(); // Save the product with updated stock
+      }
+    }
 
     const emailSubject = 'Order Confirmation - Camila Aguila';
 
@@ -212,7 +375,7 @@ router.post("/products/payment", async (req, res) => {
   }
 });
 
-// GET route to verify payment status
+
 router.get('/payment/verify/:reference', async (req, res) => {
   const { reference } = req.params;
 
@@ -322,6 +485,105 @@ router.post("/payment/status", async (req, res) => {
   }
 });
 
+// router.get("/payment/callback", async (req, res) => {
+//   const { reference } = req.query;
+
+//   if (!reference) {
+//     return res.status(400).json({ error: "Invalid callback data" });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     // Verify payment with Paystack
+//     const response = await axios.get(
+//       `https://api.paystack.co/transaction/verify/${reference}`,
+//       {
+//         headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+//       }
+//     );
+
+//     const paymentData = response.data.data;
+
+//     // Ensure postId is available in metadata
+//     const postId = paymentData.metadata?.postId || 'defaultPostId'; // Access postId from metadata
+//     const userId = paymentData.metadata?.userId; // Access userId from metadata
+//     const email = paymentData.metadata?.email;
+
+//     if (!postId) {
+//       console.error('Post ID is missing or invalid');
+//       return res.status(400).json({ error: 'Post ID is missing from metadata' });
+//     }
+
+//     if (!email) {
+//       console.error('Email is missing in metadata');
+//       return res.status(400).json({ error: 'Email is missing from metadata' });
+//     }
+
+//     if (paymentData.status === "success") {
+//       const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee } = paymentData.metadata;
+
+//       if (type === "product_purchase") {
+//         // Ensure delivery fee is a valid number, default to 0 if undefined
+//         const finalDeliveryFee = deliveryMethod === "delivery" ? deliveryFee || 0 : 0;
+
+//         console.log("Cart Items Before Order Creation:", cartItems);
+
+//         const newOrder = new Order({
+//           userId,
+//           email,
+//           items: cartItems.map(item => ({
+//             title: item.title,
+//             image: item.image,  // ✅ Ensure the correct image is stored
+//             price: item.price,
+//             quantity: item.quantity,
+//             selectedColor: item.selectedColor,
+//             selectedSize: item.selectedSize,
+//           })),
+//           totalAmount: paymentData.amount / 100, // Convert from kobo
+//           paymentReference: reference,
+//           status: "paid",
+//           deliveryMethod,
+//           phoneNumber,
+//           deliveryFee: finalDeliveryFee,
+//         });
+
+//         // await newOrder.save();
+//         const savedOrder = await newOrder.save();
+//         console.log("Saved Order:", savedOrder); ``
+
+//         // Redirect to order confirmation page
+//         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
+//       }
+//       else if (type === "blog_subscription") {
+//         // Update the post as paid in the PostModel
+//         await Post.updateOne({ _id: postId }, { paid: true });
+
+//         await User.updateOne(
+//           { _id: userId },
+//           { $addToSet: { paidPosts: postId } } // Add postId to the user's paidPosts array
+//         );
+
+//         // Redirect to the post page
+//         res.redirect(`https://chilla-sweella-personal-blog.vercel.app/blog/${postId}`);
+//         return; // Ensure no further code runs after redirect
+//       }
+//       else {
+//         // Unknown type, redirect to a generic success page
+//         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-success`);
+//       }
+//     } else {
+//       // If payment fails, redirect to failure page
+//       return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+//     }
+//   } catch (err) {
+//     console.error("Error verifying payment:", err);
+//     return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+//   }
+// });
+
+// GET order details by orderId
+
 router.get("/payment/callback", async (req, res) => {
   const { reference } = req.query;
 
@@ -389,6 +651,20 @@ router.get("/payment/callback", async (req, res) => {
         const savedOrder = await newOrder.save();
         console.log("Saved Order:", savedOrder); ``
 
+         // Update stock for each color variant
+      for (let item of cartItems) {
+        const product = await Product.findById(item.productId); // Assuming productId exists in the cart item
+        if (!product) {
+          return res.status(404).json({ error: `Product not found: ${item.productId}` });
+        }
+
+        const colorVariant = product.colorStock.find(c => c.color === item.selectedColor);
+        if (colorVariant) {
+          colorVariant.stock -= item.quantity;
+          await product.save(); // Save the product with updated stock
+        }
+      }
+
         // Redirect to order confirmation page
         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
       }
@@ -419,7 +695,7 @@ router.get("/payment/callback", async (req, res) => {
   }
 });
 
-// GET order details by orderId
+
 router.get("/orders/:orderId", async (req, res) => {
   const { orderId } = req.params;
 

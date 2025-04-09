@@ -310,6 +310,8 @@ router.post("/products/payment", async (req, res) => {
 
     const emailSubject = 'Order Confirmation - Camila Aguila';
 
+    const isPreOrder = cartItems.every(item => item.preorder === true);
+
 //     const emailHtml = `
 //   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
 //     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>

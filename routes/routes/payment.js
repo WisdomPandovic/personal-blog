@@ -661,20 +661,6 @@ router.get("/payment/callback", async (req, res) => {
         const savedOrder = await newOrder.save();
         console.log("Saved Order:", savedOrder); ``
 
-        // Update stock for each color variant
-        for (let item of cartItems) {
-          const product = await Product.findById(item.productId); // Assuming productId exists in the cart item
-          if (!product) {
-            return res.status(404).json({ error: `Product not found: ${item.productId}` });
-          }
-
-          const colorVariant = product.color.find(c => c.color === item.selectedColor);
-          if (colorVariant) {
-            colorVariant.stock -= item.quantity;
-            await product.save(); // Save the product with updated stock
-          }
-        }
-
         // Redirect to order confirmation page
         return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/order-confirmation/${newOrder._id}`);
       }

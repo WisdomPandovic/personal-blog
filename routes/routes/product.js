@@ -192,6 +192,79 @@ router.get('/product/category/:categoryId', async (req, res) => {
 // 	}
 // });
 
+// router.patch('/product/:id', async (req, res) => {
+// 	try {
+// 		const { id } = req.params;
+// 		const updates = req.body;
+
+// 		if (!ObjectId.isValid(id)) {
+// 			return res.status(400).json({ message: "Invalid product ID." });
+// 		}
+
+// 		const product = await Product.findById(id);
+// 		if (!product) {
+// 			return res.status(404).json({ message: "Product not found." });
+// 		}
+
+// 		const updateData = { ...updates };
+
+// 		// Validate stock if provided
+// 		if (updates.stock !== undefined) {
+// 			if (typeof updates.stock !== 'number' || updates.stock < 0) {
+// 				return res.status(400).json({ message: "Stock must be a non-negative number." });
+// 			}
+
+// 			// Auto-update status ONLY if status wasn't explicitly sent
+// 			if (!updates.status) {
+// 				updateData.status = updates.stock > 0 ? 'available' : 'out_of_stock';
+// 			}
+// 		}
+
+// 		// Update product
+// 		const updatedProduct = await Product.findByIdAndUpdate(id, updateData, { new: true });
+// 		res.status(200).json({ success: true, message: "Product updated", data: updatedProduct });
+
+// 	} catch (err) {
+// 		console.error(err);
+// 		res.status(500).json({ message: err.message });
+// 	}
+// });
+
+// // PATCH - Update only specific fields
+// router.patch('/product/:id', async (req, res) => {
+// 	try {
+// 		const { id } = req.params;
+// 		const updates = req.body;
+
+// 		if (!ObjectId.isValid(id)) {
+// 			return res.status(400).json({ message: "Invalid product ID." });
+// 		}
+
+// 		const product = await Product.findById(id);
+// 		if (!product) {
+// 			return res.status(404).json({ message: "Product not found." });
+// 		}
+
+// 		// Update stock if provided
+// 		if (updates.stock !== undefined) {
+// 			if (typeof updates.stock !== 'number' || updates.stock < 0) {
+// 				return res.status(400).json({ message: "Stock must be a non-negative number." });
+// 			}
+
+// 			// Set stock and update status accordingly
+// 			updates.status = updates.stock > 0 ? 'available' : 'out_of_stock';
+// 		}
+
+// 		// Update product
+// 		const updatedProduct = await Product.findByIdAndUpdate(id, updates, { new: true });
+// 		res.status(200).json({ success: true, message: "Product updated", data: updatedProduct });
+// 	} catch (err) {
+// 		console.error(err);
+// 		res.status(500).json({ message: err.message });
+// 	}
+// });
+
+
 router.patch('/product/:id', async (req, res) => {
 	try {
 		const { id } = req.params;
@@ -208,61 +281,46 @@ router.patch('/product/:id', async (req, res) => {
 
 		const updateData = { ...updates };
 
-		// Validate stock if provided
-		if (updates.stock !== undefined) {
-			if (typeof updates.stock !== 'number' || updates.stock < 0) {
-				return res.status(400).json({ message: "Stock must be a non-negative number." });
+		// If 'color' array is being updated, recalculate total stock
+		if (Array.isArray(updates.color)) {
+			let totalStock = 0;
+
+			for (const variant of updates.color) {
+				if (
+					!variant.color ||
+					typeof variant.stock !== "number" ||
+					variant.stock < 0
+				) {
+					return res.status(400).json({
+						message: "Each color must have a valid 'color' and non-negative 'stock'.",
+					});
+				}
+
+				totalStock += variant.stock;
 			}
 
-			// Auto-update status ONLY if status wasn't explicitly sent
+			// Set status based on total stock (unless status explicitly provided)
 			if (!updates.status) {
-				updateData.status = updates.stock > 0 ? 'available' : 'out_of_stock';
+				updateData.status = totalStock > 0 ? "available" : "out_of_stock";
 			}
+
+			// Optionally, store the totalStock on the root level (if desired)
+			updateData.stock = totalStock;
 		}
 
-		// Update product
-		const updatedProduct = await Product.findByIdAndUpdate(id, updateData, { new: true });
-		res.status(200).json({ success: true, message: "Product updated", data: updatedProduct });
+		const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
+			new: true,
+		});
 
+		res
+			.status(200)
+			.json({ success: true, message: "Product updated", data: updatedProduct });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
 	}
 });
 
-// PATCH - Update only specific fields
-router.patch('/product/:id', async (req, res) => {
-	try {
-		const { id } = req.params;
-		const updates = req.body;
-
-		if (!ObjectId.isValid(id)) {
-			return res.status(400).json({ message: "Invalid product ID." });
-		}
-
-		const product = await Product.findById(id);
-		if (!product) {
-			return res.status(404).json({ message: "Product not found." });
-		}
-
-		// Update stock if provided
-		if (updates.stock !== undefined) {
-			if (typeof updates.stock !== 'number' || updates.stock < 0) {
-				return res.status(400).json({ message: "Stock must be a non-negative number." });
-			}
-
-			// Set stock and update status accordingly
-			updates.status = updates.stock > 0 ? 'available' : 'out_of_stock';
-		}
-
-		// Update product
-		const updatedProduct = await Product.findByIdAndUpdate(id, updates, { new: true });
-		res.status(200).json({ success: true, message: "Product updated", data: updatedProduct });
-	} catch (err) {
-		console.error(err);
-		res.status(500).json({ message: err.message });
-	}
-});
 
 
 

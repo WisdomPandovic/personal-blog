@@ -376,7 +376,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ msg: 'Please verify your email before logging in.' });
         }
 
-        const payload = { userId: user._id, role: user.role, userEmail: user.email };
+        const payload = { userId: user._id, role: user.role, userEmail: user.email, userName: user.username };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.json({ success: true, msg: 'Login successful', user, token });
@@ -385,6 +385,45 @@ router.post('/login', async (req, res) => {
         res.status(500).json({ msg: 'Internal server error occurred' });
     }
 });
+
+router.get("/user/savedAddress/:userId", async (req, res) => {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ savedAddresses: user.savedAddresses });
+  });
+
+  router.post("/user/:userId/address", async (req, res) => {
+    const { address, postalCode, phoneNumber, label } = req.body;
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+  
+    user.savedAddresses.push({ address, postalCode, phoneNumber, label });
+    await user.save();
+    res.json({ message: "Address added", savedAddresses: user.savedAddresses });
+  });
+  
+  router.put("/user/:userId/address/:addressId", async (req, res) => {
+    const { address, postalCode, phoneNumber, label } = req.body;
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+  
+    const addr = user.savedAddresses.id(req.params.addressId);
+    if (!addr) return res.status(404).json({ error: "Address not found" });
+  
+    addr.set({ address, postalCode, phoneNumber, label });
+    await user.save();
+    res.json({ message: "Address updated", savedAddresses: user.savedAddresses });
+  });
+
+  router.delete("/user/:userId/address/:addressId", async (req, res) => {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+  
+    user.savedAddresses = user.savedAddresses.filter(a => a._id.toString() !== req.params.addressId);
+    await user.save();
+    res.json({ message: "Address deleted", savedAddresses: user.savedAddresses });
+  });  
+ 
 
 // async function testHashingAndComparison() {
 //   const password = 'wisdompandovic@';

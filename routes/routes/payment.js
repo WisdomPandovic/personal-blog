@@ -750,6 +750,24 @@ router.get("/orders/:orderId", async (req, res) => {
   }
 });
 
+// GET /orders/user/:userId
+router.get("/orders/user/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ message: "No orders found for this user." });
+    }
+
+    res.status(200).json({ orders });
+  } catch (err) {
+    console.error("Error fetching user orders:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 router.post("/webhook/paystack", async (req, res) => {
   console.log("🔹 FULL PAYSTACK WEBHOOK DATA:", JSON.stringify(req.body, null, 2));
 

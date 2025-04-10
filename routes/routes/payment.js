@@ -308,6 +308,33 @@ router.post("/products/payment", async (req, res) => {
       }
     }
 
+    // 🔐 Save delivery address to user if applicable
+    if (deliveryMethod === "delivery") {
+      const user = await User.findById(userId);
+      if (user) {
+        const addressExists = user.savedAddresses.some(addr =>
+          addr.address === address &&
+          addr.postalCode === postalCode &&
+          addr.phoneNumber === phoneNumber
+        );
+
+        if (!addressExists) {
+          user.savedAddresses.push({
+            address,
+            postalCode,
+            phoneNumber,
+            label: "Home", // Optional: use dynamic labels like 'Home'
+          });
+          await user.save();
+          console.log("📦 Address saved to user's profile.");
+        } else {
+          console.log("ℹ️ Address already exists in user's profile.");
+        }
+      } else {
+        console.warn("⚠️ User not found to save address.");
+      }
+    }
+
     const emailSubject = 'Order Confirmation - Camila Aguila';
 
     const isPreOrder = cartItems.every(item => item.preorder === true);

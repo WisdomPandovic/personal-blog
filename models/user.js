@@ -28,6 +28,14 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'user'],
     default: 'user',
   },
+  savedAddresses: [
+    {
+      address: String,
+      postalCode: String,
+      phoneNumber: String,
+      label: String, // e.g., 'Home', 'Work'
+    }
+  ],  
   lastLogin: {
     type: Date,
     default: null,

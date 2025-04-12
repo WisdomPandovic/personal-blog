@@ -24,6 +24,14 @@ router.post('/payment', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
+     // Fetch the post by postId to get the title
+     const post = await Post.findById(postId).lean(); // Fetch post by ID
+     if (!post) {
+       return res.status(404).json({ error: 'Post not found' });
+     }
+ 
+     const postTitle = post.title; // Get the post title from the fetched post
+
     // Initialize metadata object
     const metadata = { email, postId, userId, type: "blog_subscription", };
 
@@ -1139,5 +1147,8 @@ router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
     res.status(500).json({ message: "Server error." });
   }
 });
+
+
+
 
 module.exports = router;

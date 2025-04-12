@@ -1,6 +1,8 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const authenticate = require('../../middleware/authenticate')
+const isAdmin = require('../../middleware/admin'); 
 const Post = require("../../models/post");
 const Product = require("../../models/product");
 const User = require("../../models/user");
@@ -1097,6 +1099,44 @@ router.post('/process-return', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error, please try again later." });
+  }
+});
+
+// Update order status (Admin only)
+router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
+
+  const validStatuses = [
+    "pending",
+    "paid",
+    "processing",
+    "shipped",
+    "delivered",
+    "canceled",
+    "refund_requested",
+    "store_credit_issued",
+  ];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: "Invalid status value." });
+  }
+
+  try {
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      { status },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    res.status(200).json({ message: "Order status updated.", order: updatedOrder });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    res.status(500).json({ message: "Server error." });
   }
 });
 

@@ -770,7 +770,6 @@ router.get("/payment/callback", async (req, res) => {
   }
 });
 
-
 router.get("/orders/:orderId", async (req, res) => {
   const { orderId } = req.params;
 
@@ -1148,7 +1147,38 @@ router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// GET /api/products/most-bought
+router.get("/most-bought", async (req, res) => {
+  try {
+    const mostBought = await Order.aggregate([
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.title", // use productId if available
+          totalSold: { $sum: "$items.quantity" },
+        },
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: 10 },
+    ]);
 
+    const titles = mostBought.map(item => item._id);
+    const products = await Product.find({ title: { $in: titles } });
 
+    // Add totalSold info to products
+    const productsWithSales = products.map(product => {
+      const matchingSale = mostBought.find(item => item._id === product.title);
+      return {
+        ...product.toObject(),
+        totalSold: matchingSale?.totalSold || 0,
+      };
+    });
+
+    res.status(200).json(productsWithSales);
+  } catch (err) {
+    console.error("Error fetching most bought products:", err.message);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
 
 module.exports = router;

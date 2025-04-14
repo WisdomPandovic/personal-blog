@@ -30,6 +30,83 @@
 
 // Load environment variables from .env file if available
 // Load environment variables from .env file if available
+// require('dotenv').config();
+
+// const express = require('express');
+// const mongoose = require('mongoose');
+// const cors = require("cors");
+// const path = require('path');
+// const cookieParser = require('cookie-parser');
+// const session = require('express-session');
+// const MongoStore = require('connect-mongo');
+// const userRoutes = require('./routes/routes/user'); 
+// const postRoutes = require('./routes/routes/post'); 
+// const categoryRoutes = require('./routes/routes/category'); 
+// const contactRoutes = require('./routes/routes/contact'); 
+// const subscriptionRoutes = require('./routes/routes/subscription'); 
+// const searchRoutes = require('./routes/routes/search'); 
+// const paymentRoutes = require('./routes/routes/payment'); 
+// const productRoutes = require('./routes/routes/product'); 
+// const productPaymentRoutes = require('./routes/routes/productPayment')
+
+// const app = express();
+
+// // Use environment variables for configuration
+// const PORT = process.env.PORT || 3007;
+// const DB_URL = process.env.DB_URL || "mongodb://127.0.0.1:27017/camila-blog";
+// // const DB_URL = "mongodb://127.0.0.1:27017/camila-blog";
+// const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret';
+
+// // Connect to MongoDB
+// mongoose.connect(DB_URL, {
+//   useNewUrlParser: true,
+//   useUnifiedTopology: true,
+//   tls: true,  // Use TLS for secure connections
+//   tlsAllowInvalidCertificates: true  // Allow invalid certificates
+// });
+// mongoose.connection.on('open', () => console.log("Server connected"));
+// mongoose.connection.on('error', (err) => console.log(err));
+
+// // Middleware
+// app.use(cors());
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+// app.use(cookieParser());
+// app.use(session({
+//     secret: SESSION_SECRET,
+//     resave: false,
+//     saveUninitialized: false,
+//     store: MongoStore.create({
+//         mongoUrl: DB_URL,
+//         collectionName: 'sessions'
+//     }),
+//     cookie: {
+//         secure: process.env.NODE_ENV === 'production',
+//         httpOnly: true,
+//         maxAge: 3600000 // 1 hour
+//     }
+// }));
+
+// // Static files
+// app.use('/postimage', express.static(path.join(__dirname, 'public', 'postimage')));
+
+// // Routes
+// app.use('/api', userRoutes);
+// app.use('/api', postRoutes);
+// app.use('/api', categoryRoutes);
+// app.use('/api', contactRoutes);
+// app.use('/api', subscriptionRoutes);
+// app.use('/api', searchRoutes);
+// app.use('/api', paymentRoutes);
+// app.use('/api', productRoutes);
+// app.use('/api', productPaymentRoutes);
+
+// // Start server
+// app.listen(PORT, '0.0.0.0', () => {
+//     console.log(`App is running on http://0.0.0.0:${PORT}`);
+// });
+
+
 require('dotenv').config();
 
 const express = require('express');
@@ -39,6 +116,10 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
+const http = require('http');
+const { Server } = require('socket.io');
+
+// Import routes
 const userRoutes = require('./routes/routes/user'); 
 const postRoutes = require('./routes/routes/post'); 
 const categoryRoutes = require('./routes/routes/category'); 
@@ -47,22 +128,27 @@ const subscriptionRoutes = require('./routes/routes/subscription');
 const searchRoutes = require('./routes/routes/search'); 
 const paymentRoutes = require('./routes/routes/payment'); 
 const productRoutes = require('./routes/routes/product'); 
-const productPaymentRoutes = require('./routes/routes/productPayment')
+const productPaymentRoutes = require('./routes/routes/productPayment');
 
 const app = express();
+const server = http.createServer(app); // Use http server for both Express & Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
+});
 
-// Use environment variables for configuration
+// Environment configs
 const PORT = process.env.PORT || 3007;
 const DB_URL = process.env.DB_URL || "mongodb://127.0.0.1:27017/camila-blog";
-// const DB_URL = "mongodb://127.0.0.1:27017/camila-blog";
 const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret';
 
-// Connect to MongoDB
+// MongoDB
 mongoose.connect(DB_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  tls: true,  // Use TLS for secure connections
-  tlsAllowInvalidCertificates: true  // Allow invalid certificates
+  tls: true,
+  tlsAllowInvalidCertificates: true
 });
 mongoose.connection.on('open', () => console.log("Server connected"));
 mongoose.connection.on('error', (err) => console.log(err));
@@ -83,11 +169,11 @@ app.use(session({
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 3600000 // 1 hour
+        maxAge: 3600000
     }
 }));
 
-// Static files
+// Static
 app.use('/postimage', express.static(path.join(__dirname, 'public', 'postimage')));
 
 // Routes
@@ -101,7 +187,41 @@ app.use('/api', paymentRoutes);
 app.use('/api', productRoutes);
 app.use('/api', productPaymentRoutes);
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`App is running on http://0.0.0.0:${PORT}`);
+// 🧠 Live streaming logic
+let liveStream = {
+  isLive: false,
+  adminSocketId: null,
+};
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("admin-go-live", () => {
+    liveStream.isLive = true;
+    liveStream.adminSocketId = socket.id;
+    io.emit("live-started");
+  });
+
+  socket.on("admin-end-live", () => {
+    liveStream.isLive = false;
+    liveStream.adminSocketId = null;
+    io.emit("live-ended");
+  });
+
+  socket.on("comment", (comment) => {
+    io.emit("new-comment", comment);
+  });
+
+  socket.on("disconnect", () => {
+    if (socket.id === liveStream.adminSocketId) {
+      liveStream.isLive = false;
+      liveStream.adminSocketId = null;
+      io.emit("live-ended");
+    }
+  });
+});
+
+// 🟢 Start server
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`App with Socket.IO running on http://0.0.0.0:${PORT}`);
 });

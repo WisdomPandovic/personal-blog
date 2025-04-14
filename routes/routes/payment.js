@@ -739,7 +739,7 @@ router.get("/most-bought", async (req, res) => {
       { $unwind: "$items" },
       {
         $group: {
-          _id: "$items.productId", // group by productId
+          _id: "$items.productId", // Group by productId
           totalSold: { $sum: "$items.quantity" },
         },
       },
@@ -748,25 +748,31 @@ router.get("/most-bought", async (req, res) => {
     ]);
 
     const productIds = mostBought
-      .filter(item => item._id) // remove nulls if any
-      .map(item => mongoose.Types.ObjectId(item._id));
+      .filter(item => item._id) // Remove nulls if any
+      .map(item => new mongoose.Types.ObjectId(item._id)); // Convert to ObjectId
 
     if (productIds.length === 0) {
-      return res.status(200).json([]); // nothing to fetch
+      return res.status(200).json([]); // Nothing to fetch
     }
 
     const products = await Product.find({ _id: { $in: productIds } });
 
-    const productsWithSales = products.map(product => {
-      const match = mostBought.find(sale =>
-        sale._id.toString() === product._id.toString()
-      );
+    const productsWithSales = products
+      .filter(product => Object.keys(product.images).length > 0) // Exclude products with empty images
+      .map(product => {
+        const match = mostBought.find(sale => sale._id.toString() === product._id.toString());
+        const selectedColor = product.color.find(c => c.color === 'red'); // Example: 'red'
 
-      return {
-        ...product.toObject(),
-        totalSold: match?.totalSold || 0,
-      };
-    });
+        const image = selectedColor && product.images[selectedColor.color]?.[0]
+          ? product.images[selectedColor.color][0]
+          : "https://via.placeholder.com/400x400?text=No+Image"; // Valid fallback image
+
+        return {
+          ...product.toObject(),
+          totalSold: match?.totalSold || 0,
+          image: image,
+        };
+      });
 
     res.status(200).json(productsWithSales);
   } catch (err) {
@@ -774,5 +780,6 @@ router.get("/most-bought", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
 
 module.exports = router;

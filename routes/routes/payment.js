@@ -109,7 +109,7 @@ router.post("/products/payment", async (req, res) => {
       userId,
       email,
       cartItems: cartItems.map(item => ({
-        productId: item._id,
+        productId: item.productId,
         title: item.title,
         image: encodeURIComponent(item.image), // ✅ Encode the image URL
         price: item.price,

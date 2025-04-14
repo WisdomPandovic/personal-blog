@@ -5,6 +5,11 @@ const OrderSchema = new mongoose.Schema({
   email: { type: String, required: true },
   items: [
     {
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "products",
+        required: true,
+      },
       title: String,
       image: String,
       price: Number,

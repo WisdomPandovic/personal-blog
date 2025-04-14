@@ -721,6 +721,7 @@ router.get("/payment/callback", async (req, res) => {
           userId,
           email,
           items: cartItems.map(item => ({
+            productId: item.productId,
             title: item.title,
             image: item.image,  // ✅ Ensure the correct image is stored
             price: item.price,
@@ -1148,13 +1149,14 @@ router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
 });
 
 // GET /api/products/most-bought
+
 router.get("/most-bought", async (req, res) => {
   try {
     const mostBought = await Order.aggregate([
       { $unwind: "$items" },
       {
         $group: {
-          _id: "$items.title", // use productId if available
+          _id: "$items.productId", // group by productId
           totalSold: { $sum: "$items.quantity" },
         },
       },
@@ -1162,15 +1164,24 @@ router.get("/most-bought", async (req, res) => {
       { $limit: 10 },
     ]);
 
-    const titles = mostBought.map(item => item._id);
-    const products = await Product.find({ title: { $in: titles } });
+    const productIds = mostBought
+      .filter(item => item._id) // remove nulls if any
+      .map(item => mongoose.Types.ObjectId(item._id));
 
-    // Add totalSold info to products
+    if (productIds.length === 0) {
+      return res.status(200).json([]); // nothing to fetch
+    }
+
+    const products = await Product.find({ _id: { $in: productIds } });
+
     const productsWithSales = products.map(product => {
-      const matchingSale = mostBought.find(item => item._id === product.title);
+      const match = mostBought.find(sale =>
+        sale._id.toString() === product._id.toString()
+      );
+
       return {
         ...product.toObject(),
-        totalSold: matchingSale?.totalSold || 0,
+        totalSold: match?.totalSold || 0,
       };
     });
 
@@ -1180,5 +1191,8 @@ router.get("/most-bought", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
+
+
 
 module.exports = router;

@@ -276,6 +276,7 @@ io.on("connection", (socket) => {
       console.log("📡 Admin started streaming");
       liveStream.isLive = true;
       liveStream.adminSocketId = socket.id;
+      console.log("🎥 Admin socket ID set:", liveStream.adminSocketId);
   
       // Notify all users that live started
       io.emit("live-started");

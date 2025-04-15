@@ -135,6 +135,7 @@ const server = http.createServer(app); // Use http server for both Express & Soc
 const io = new Server(server, {
   cors: {
     origin: "*",
+    methods: ["GET", "POST"],
   },
 });
 
@@ -269,69 +270,71 @@ let liveStream = {
 
 io.on("connection", (socket) => {
     console.log("🔌 User connected:", socket.id);
-
-    // Admin starts stream
+  
+    // Admin starts streaming
     socket.on("admin-go-live", () => {
-        console.log("📡 Admin started streaming");
-        liveStream.isLive = true;
-        liveStream.adminSocketId = socket.id;
-
-        // Notify all users that live started
-        io.emit("live-started");
+      console.log("📡 Admin started streaming");
+      liveStream.isLive = true;
+      liveStream.adminSocketId = socket.id;
+  
+      // Notify all users that live started
+      io.emit("live-started");
     });
-
-    // Viewer wants to watch
+  
+    // Viewer joins
     socket.on("watcher", (viewerId) => {
-        console.log("👀 Watcher connected:", viewerId);
-
-        if (liveStream.adminSocketId) {
-            io.to(liveStream.adminSocketId).emit("watcher", viewerId);
-        } else {
-            socket.emit("error", "No active live stream.");
-        }
+      console.log("👀 Watcher connected:", viewerId);
+  
+      if (liveStream.adminSocketId) {
+        console.log("📨 Notifying admin of new watcher:", liveStream.adminSocketId);
+        io.to(liveStream.adminSocketId).emit("watcher", viewerId); // Notify admin of new viewer
+      } else {
+        console.log("⚠️ No active live stream. Cannot notify admin.");
+        socket.emit("error", "No active live stream.");
+      }
     });
-
+  
     // Admin sends offer to viewer
     socket.on("offer", (id, description) => {
-        console.log("📨 Admin sending offer to viewer:", id);
-        socket.to(id).emit("offer", socket.id, description);
+      console.log("📨 Admin sending offer to viewer:", id);
+      io.to(id).emit("offer", socket.id, description);
     });
-
+  
     // Viewer sends answer to admin
     socket.on("answer", (id, description) => {
-        console.log("📨 Answer sent to", id);
-        socket.to(id).emit("answer", socket.id, description);
+      console.log("📨 Viewer sending answer to admin:", id);
+      io.to(id).emit("answer", socket.id, description);
     });
-
+  
     // ICE candidate exchange
     socket.on("candidate", (id, candidate) => {
-        console.log("❄️ ICE candidate sent to", id);
-        socket.to(id).emit("candidate", socket.id, candidate);
+      console.log("❄️ ICE candidate sent to", id);
+      io.to(id).emit("candidate", socket.id, candidate);
     });
-
+  
     // Admin ends stream manually
     socket.on("admin-stop-live", () => {
-        console.log("❌ Admin stopped streaming");
+      console.log("❌ Admin stopped streaming");
+      liveStream.isLive = false;
+      liveStream.adminSocketId = null;
+      io.emit("live-ended");
+    });
+  
+    // On disconnect
+    socket.on("disconnect", () => {
+      console.log("❌ Disconnected:", socket.id);
+  
+      // If admin disconnects, stop live
+      if (socket.id === liveStream.adminSocketId) {
         liveStream.isLive = false;
         liveStream.adminSocketId = null;
         io.emit("live-ended");
+      }
+  
+      // Inform peers to close connections
+      socket.broadcast.emit("disconnect-peer", socket.id);
     });
-
-    // On disconnect
-    socket.on("disconnect", () => {
-        console.log("❌ Disconnected:", socket.id);
-
-        // If admin disconnects, stop live
-        if (socket.id === liveStream.adminSocketId) {
-            liveStream.isLive = false;
-            liveStream.adminSocketId = null;
-            io.emit("live-ended");
-        }
-
-        // Inform peers to close connections
-        socket.broadcast.emit("disconnect-peer", socket.id);
-    });
-});
+  });
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`App with Socket.IO running on http://0.0.0.0:${PORT}`);

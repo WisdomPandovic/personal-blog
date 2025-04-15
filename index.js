@@ -193,79 +193,146 @@ let liveStream = {
   adminSocketId: null,
 };
 
+// io.on("connection", (socket) => {
+//     console.log("🔌 User connected:", socket.id);
+  
+//     // Admin starts stream
+//     socket.on("admin-go-live", () => {
+//       console.log("📡 Admin started streaming");
+//       liveStream.isLive = true;
+//       liveStream.adminSocketId = socket.id;
+  
+//       // Notify all users that live started
+//       io.emit("live-started");
+  
+//       // Notify viewers to emit "watcher"
+//       socket.broadcast.emit("broadcaster");
+//     });
+  
+//     // Viewer wants to watch
+//     socket.on("watcher", (viewerId) => {
+//       console.log("👀 Watcher connected:", viewerId);
+  
+//       if (liveStream.adminSocketId) {
+//         io.to(liveStream.adminSocketId).emit("watcher", viewerId);
+//       }
+//     });
+  
+//     // Admin sends offer to viewer
+//     socket.on("offer", (id, description) => {
+//         console.log("📨 Admin sending offer to viewer:", id);
+//         socket.to(id).emit("offer", socket.id, description);
+//       });            
+  
+//     // Viewer sends answer to admin
+//     socket.on("answer", (id, description) => {
+//       console.log("📨 Answer sent to", id);
+//       socket.to(id).emit("answer", socket.id, description);
+//     });
+  
+//     // ICE candidate exchange
+//     socket.on("candidate", (id, candidate) => {
+//       console.log("❄️ ICE candidate sent to", id);
+//       socket.to(id).emit("candidate", socket.id, candidate);
+//     });
+  
+//     // Admin ends stream manually
+//     socket.on("admin-end-live", () => {
+//       console.log("❌ Admin stopped streaming");
+//       liveStream.isLive = false;
+//       liveStream.adminSocketId = null;
+//       io.emit("live-ended");
+//     });
+  
+//     // Comments during live
+//     socket.on("comment", (comment) => {
+//       io.emit("new-comment", comment);
+//     });
+  
+//     // On disconnect
+//     socket.on("disconnect", () => {
+//       console.log("❌ Disconnected:", socket.id);
+  
+//       // If admin disconnects, stop live
+//       if (socket.id === liveStream.adminSocketId) {
+//         liveStream.isLive = false;
+//         liveStream.adminSocketId = null;
+//         io.emit("live-ended");
+//       }
+  
+//       // Inform peers to close connections
+//       socket.broadcast.emit("disconnectPeer", socket.id);
+//     });
+//   }); 
+
+// 🟢 Start server
+
 io.on("connection", (socket) => {
     console.log("🔌 User connected:", socket.id);
-  
+
     // Admin starts stream
     socket.on("admin-go-live", () => {
-      console.log("📡 Admin started streaming");
-      liveStream.isLive = true;
-      liveStream.adminSocketId = socket.id;
-  
-      // Notify all users that live started
-      io.emit("live-started");
-  
-      // Notify viewers to emit "watcher"
-      socket.broadcast.emit("broadcaster");
+        console.log("📡 Admin started streaming");
+        liveStream.isLive = true;
+        liveStream.adminSocketId = socket.id;
+
+        // Notify all users that live started
+        io.emit("live-started");
     });
-  
+
     // Viewer wants to watch
     socket.on("watcher", (viewerId) => {
-      console.log("👀 Watcher connected:", viewerId);
-  
-      if (liveStream.adminSocketId) {
-        io.to(liveStream.adminSocketId).emit("watcher", viewerId);
-      }
+        console.log("👀 Watcher connected:", viewerId);
+
+        if (liveStream.adminSocketId) {
+            io.to(liveStream.adminSocketId).emit("watcher", viewerId);
+        } else {
+            socket.emit("error", "No active live stream.");
+        }
     });
-  
+
     // Admin sends offer to viewer
     socket.on("offer", (id, description) => {
-      console.log("📨 Offer sent to", id);
-      socket.to(id).emit("offer", socket.id, description);
+        console.log("📨 Admin sending offer to viewer:", id);
+        socket.to(id).emit("offer", socket.id, description);
     });
-  
+
     // Viewer sends answer to admin
     socket.on("answer", (id, description) => {
-      console.log("📨 Answer sent to", id);
-      socket.to(id).emit("answer", socket.id, description);
+        console.log("📨 Answer sent to", id);
+        socket.to(id).emit("answer", socket.id, description);
     });
-  
+
     // ICE candidate exchange
     socket.on("candidate", (id, candidate) => {
-      console.log("❄️ ICE candidate sent to", id);
-      socket.to(id).emit("candidate", socket.id, candidate);
+        console.log("❄️ ICE candidate sent to", id);
+        socket.to(id).emit("candidate", socket.id, candidate);
     });
-  
+
     // Admin ends stream manually
-    socket.on("admin-end-live", () => {
-      console.log("❌ Admin stopped streaming");
-      liveStream.isLive = false;
-      liveStream.adminSocketId = null;
-      io.emit("live-ended");
-    });
-  
-    // Comments during live
-    socket.on("comment", (comment) => {
-      io.emit("new-comment", comment);
-    });
-  
-    // On disconnect
-    socket.on("disconnect", () => {
-      console.log("❌ Disconnected:", socket.id);
-  
-      // If admin disconnects, stop live
-      if (socket.id === liveStream.adminSocketId) {
+    socket.on("admin-stop-live", () => {
+        console.log("❌ Admin stopped streaming");
         liveStream.isLive = false;
         liveStream.adminSocketId = null;
         io.emit("live-ended");
-      }
-  
-      // Inform peers to close connections
-      socket.broadcast.emit("disconnectPeer", socket.id);
     });
-  }); 
 
-// 🟢 Start server
+    // On disconnect
+    socket.on("disconnect", () => {
+        console.log("❌ Disconnected:", socket.id);
+
+        // If admin disconnects, stop live
+        if (socket.id === liveStream.adminSocketId) {
+            liveStream.isLive = false;
+            liveStream.adminSocketId = null;
+            io.emit("live-ended");
+        }
+
+        // Inform peers to close connections
+        socket.broadcast.emit("disconnect-peer", socket.id);
+    });
+});
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`App with Socket.IO running on http://0.0.0.0:${PORT}`);
 });

@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const axios = require('axios');
 const router = express.Router();
 const authenticate = require('../../middleware/authenticate')
-const isAdmin = require('../../middleware/admin'); 
+const isAdmin = require('../../middleware/admin');
 const Post = require("../../models/post");
 const Product = require("../../models/product");
 const User = require("../../models/user");
@@ -25,13 +25,13 @@ router.post('/payment', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-     // Fetch the post by postId to get the title
-     const post = await Post.findById(postId).lean(); // Fetch post by ID
-     if (!post) {
-       return res.status(404).json({ error: 'Post not found' });
-     }
- 
-     const postTitle = post.title; // Get the post title from the fetched post
+    // Fetch the post by postId to get the title
+    const post = await Post.findById(postId).lean(); // Fetch post by ID
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const postTitle = post.title; // Get the post title from the fetched post
 
     // Initialize metadata object
     const metadata = { email, postId, userId, type: "blog_subscription", };
@@ -159,11 +159,11 @@ router.post("/products/payment", async (req, res) => {
       console.log("👉 color:", product.color);
 
       // If it's a pre-order item, skip the stock check
-    if (item.preorder) {
-      // Handle pre-order items, don't deduct stock
-      console.log(`Pre-order item: ${item.title} (color: ${item.selectedColor})`);
-      continue; // Skip stock deduction for pre-order items
-  }
+      if (item.preorder) {
+        // Handle pre-order items, don't deduct stock
+        console.log(`Pre-order item: ${item.title} (color: ${item.selectedColor})`);
+        continue; // Skip stock deduction for pre-order items
+      }
 
       // Find the color variant for the selected color
       const colorVariant = product.color.find(c => c.color === item.selectedColor);
@@ -209,60 +209,53 @@ router.post("/products/payment", async (req, res) => {
 
     const isPreOrder = cartItems.every(item => item.preorder === true);
 
-const emailHtml = `
+    const emailHtml = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
     <p>Hello,</p>
-    <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${
-  isPreOrder
-    ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
-    : "Your order has been received and is now being processed."
-}</p>
+    <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${isPreOrder
+        ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
+        : "Your order has been received and is now being processed."
+      }</p>
 
     <h3>📦 Order Details</h3>
     <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
     <p><strong>Email:</strong> ${email || "N/A"}</p>
     <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
-    ${
-      deliveryMethod === "delivery"
+    ${deliveryMethod === "delivery"
         ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
         : ""
-    }
+      }
 
     <h3>🛍 Items Ordered</h3>
     <ul>
-      ${
-        Array.isArray(cartItems) && cartItems.length > 0
-          ? cartItems
-              .map(
-                (item) => `
-                  <li>${item.title || "Untitled Item"} (Size: ${
-                  item.selectedSize || "N/A"
-                }, Color: ${item.selectedColor || "N/A"}, Qty: ${
-                  item.quantity || "N/A"
-                }) - $${item.price || "0.00"}</li>`
-              )
-              .join("")
-          : "<li>No items ordered.</li>"
+      ${Array.isArray(cartItems) && cartItems.length > 0
+        ? cartItems
+          .map(
+            (item) => `
+                  <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"
+              }, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"
+              }) - $${item.price || "0.00"}</li>`
+          )
+          .join("")
+        : "<li>No items ordered.</li>"
       }
     </ul>
 
     <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
 
-    ${
-      !isPreOrder
+    ${!isPreOrder
         ? `
     <p>If you have any issues or would like to request a return, click the button below:</p>
 
-    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${
-      response.data.data.reference || ""
-    }" 
+    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""
+        }" 
        style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
        aria-label="Start a Return Request">
        Start a Return Request
     </a>`
         : ""
-    }
+      }
 
     <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
   </div>
@@ -427,7 +420,8 @@ router.get("/payment/callback", async (req, res) => {
     }
 
     if (paymentData.status === "success") {
-      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee } = paymentData.metadata;
+      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee, address,
+        postalCode } = paymentData.metadata;
 
       if (type === "product_purchase") {
         // Ensure delivery fee is a valid number, default to 0 if undefined
@@ -453,6 +447,8 @@ router.get("/payment/callback", async (req, res) => {
           deliveryMethod,
           phoneNumber,
           deliveryFee: finalDeliveryFee,
+          address: deliveryMethod === "delivery" ? address : undefined,
+          postalCode: deliveryMethod === "delivery" ? postalCode : undefined,
         });
 
         // await newOrder.save();
@@ -486,6 +482,38 @@ router.get("/payment/callback", async (req, res) => {
   } catch (err) {
     console.error("Error verifying payment:", err);
     return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+  }
+});
+
+// router.get('/orders', async (req, res) => {
+//     try {
+//         let orders = await Order.find().lean();
+//         res.json(orders);
+//     } catch (err) {
+//         res.status(500).send(err.message);
+//     }
+// });
+
+router.get('/orders', authenticate, isAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1; // Default to page 1
+    const limit = parseInt(req.query.limit) || 10; // Default to 10 orders per page
+    const skip = (page - 1) * limit;
+
+    const total = await Order.countDocuments();
+    const orders = await Order.find()
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      orders,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalOrders: total,
+    });
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 });
 
@@ -812,12 +840,12 @@ router.get("/most-bought", async (req, res) => {
       const match = mostBought.find(sale => {
         return sale._id && sale._id.toString() === product._id.toString();
       });
-    
+
       return {
         ...product,
         totalSold: match?.totalSold || 0,
       };
-    });    
+    });
 
     res.status(200).json(productsWithSales);
   } catch (err) {

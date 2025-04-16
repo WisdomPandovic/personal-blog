@@ -8,6 +8,7 @@ const Post = require("../../models/post");
 const Product = require("../../models/product");
 const User = require("../../models/user");
 const Order = require("../../models/order");
+const Transaction = require("../../models/transaction");
 const sendConfirmationEmail = require("../../utils/emailService");
 
 // Load environment variables
@@ -551,46 +552,46 @@ router.get("/orders/user/:userId", async (req, res) => {
   }
 });
 
-router.post("/webhook/paystack", async (req, res) => {
-  console.log("🔹 FULL PAYSTACK WEBHOOK DATA:", JSON.stringify(req.body, null, 2));
+// router.post("/webhook/paystack", async (req, res) => {
+//   console.log("🔹 FULL PAYSTACK WEBHOOK DATA:", JSON.stringify(req.body, null, 2));
 
-  const { data } = req.body;
-  if (!data) {
-    console.error("❌ Error: No `data` object found in webhook.");
-    return res.status(400).json({ error: "Invalid webhook data" });
-  }
+//   const { data } = req.body;
+//   if (!data) {
+//     console.error("❌ Error: No `data` object found in webhook.");
+//     return res.status(400).json({ error: "Invalid webhook data" });
+//   }
 
-  const { metadata, reference, status } = data;
+//   const { metadata, reference, status } = data;
 
-  console.log("✅ Extracted Metadata:", metadata);
+//   console.log("✅ Extracted Metadata:", metadata);
 
-  if (!metadata || !metadata.phoneNumber || !metadata.deliveryMethod) {
-    console.error("❌ Metadata is missing required fields.");
-    return res.status(400).json({ error: "Missing required fields in metadata" });
-  }
+//   if (!metadata || !metadata.phoneNumber || !metadata.deliveryMethod) {
+//     console.error("❌ Metadata is missing required fields.");
+//     return res.status(400).json({ error: "Missing required fields in metadata" });
+//   }
 
-  try {
-    const newOrder = new Order({
-      userId: metadata.userId,
-      items: metadata.cartItems,
-      totalAmount: data.amount / 100, // Convert from kobo to Naira
-      deliveryMethod: metadata.deliveryMethod,
-      address: metadata.address,
-      postalCode: metadata.postalCode,
-      phoneNumber: metadata.phoneNumber,
-      deliveryFee: metadata.deliveryFee,
-      paymentReference: reference,
-      status,
-    });
+//   try {
+//     const newOrder = new Order({
+//       userId: metadata.userId,
+//       items: metadata.cartItems,
+//       totalAmount: data.amount / 100, // Convert from kobo to Naira
+//       deliveryMethod: metadata.deliveryMethod,
+//       address: metadata.address,
+//       postalCode: metadata.postalCode,
+//       phoneNumber: metadata.phoneNumber,
+//       deliveryFee: metadata.deliveryFee,
+//       paymentReference: reference,
+//       status,
+//     });
 
-    console.log("✅ Saving Order:", newOrder);
-    await newOrder.save();
-    res.status(201).json({ message: "Order saved successfully." });
-  } catch (error) {
-    console.error("❌ Error saving order:", error);
-    res.status(500).json({ error: "Error saving order" });
-  }
-});
+//     console.log("✅ Saving Order:", newOrder);
+//     await newOrder.save();
+//     res.status(201).json({ message: "Order saved successfully." });
+//   } catch (error) {
+//     console.error("❌ Error saving order:", error);
+//     res.status(500).json({ error: "Error saving order" });
+//   }
+// });
 
 router.get('/verify-return', async (req, res) => {
   try {
@@ -853,5 +854,67 @@ router.get("/most-bought", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
+router.post("/webhook/paystack", async (req, res) => {
+  console.log("🔹 FULL PAYSTACK WEBHOOK DATA:", JSON.stringify(req.body, null, 2));
+
+  const { data } = req.body;
+  if (!data) {
+    console.error("❌ Error: No `data` object found in webhook.");
+    return res.status(400).json({ error: "Invalid webhook data" });
+  }
+
+  const { metadata, reference, status } = data;
+
+  console.log("✅ Extracted Metadata:", metadata);
+
+  if (!metadata || !metadata.phoneNumber || !metadata.deliveryMethod) {
+    console.error("❌ Metadata is missing required fields.");
+    return res.status(400).json({ error: "Missing required fields in metadata" });
+  }
+
+  try {
+    // Create the order
+    const newOrder = new Order({
+      userId: metadata.userId,
+      items: metadata.cartItems,
+      totalAmount: data.amount / 100,
+      deliveryMethod: metadata.deliveryMethod,
+      address: metadata.address,
+      postalCode: metadata.postalCode,
+      phoneNumber: metadata.phoneNumber,
+      deliveryFee: metadata.deliveryFee,
+      paymentReference: reference,
+      status,
+    });
+
+    await newOrder.save();
+    console.log("✅ Order saved:", newOrder);
+
+    // Save the transaction
+    const newTransaction = new Transaction({
+      userId: metadata.userId,
+      orderId: newOrder._id,
+      reference: data.reference,
+      amount: data.amount / 100,
+      status: data.status,
+      channel: data.channel,
+      currency: data.currency,
+      paidAt: new Date(data.paid_at),
+      gatewayResponse: data.gateway_response,
+      paymentMethod: data.channel,
+      metadata: metadata,
+    });
+
+    await newTransaction.save();
+    console.log("💰 Transaction saved:", newTransaction);
+
+    res.status(201).json({ message: "Order and transaction saved successfully." });
+  } catch (error) {
+    console.error("❌ Error saving order or transaction:", error);
+    res.status(500).json({ error: "Error saving order or transaction" });
+  }
+});
+
 
 module.exports = router;

@@ -208,7 +208,7 @@ router.post("/products/payment", async (req, res) => {
 
      // Save transaction data to the database
      const transactionData = {
-      userId: mongoose.Types.ObjectId(userId), // Ensure userId is converted to ObjectId
+      userId, // Ensure userId is converted to ObjectId
       reference: response.data.data.reference,
       amount: totalAmount,
       status: response.data.data.status,

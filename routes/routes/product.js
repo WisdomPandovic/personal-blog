@@ -29,15 +29,53 @@ const storage = multer.diskStorage({
 const postimage = multer({ storage: storage });
 
 // const routes = function (app) {
-router.get('/product', async function (req, res) {
-	try {
-		let product = await Product.find().populate("category").populate('user').lean();
-		res.json(product)
+// router.get('/product', async function (req, res) {
+// 	try {
+// 		let product = await Product.find().populate("category").populate('user').lean();
+// 		res.json(product)
 
-	} catch (err) {
-		res.status(500).send(err.message)
-	}
-});
+// 	} catch (err) {
+// 		res.status(500).send(err.message)
+// 	}
+// });
+
+router.get('/product', async function (req, res) {
+  try {
+    const { page = 1, limit = 10, category = "", searchTerm = "" } = req.query;
+    const query = {};
+
+    // If category is provided, filter by category
+    if (category) {
+      query.category = category;
+    }
+
+    // If searchTerm is provided, filter by product title (or any other fields you want to search)
+    if (searchTerm) {
+      query.title = { $regex: searchTerm, $options: 'i' }; // Case-insensitive search on the title
+    }
+
+    // Fetch products based on query, sorting by creation date
+    const products = await Product.find(query)
+      .populate("category")
+      .populate("user")
+      .sort({ createdAt: -1 }) // Sort by creation date (newest first)
+      .skip((page - 1) * limit) // Pagination
+      .limit(Number(limit)) // Limit results based on page and limit
+      .lean();
+
+    const totalProducts = await Product.countDocuments(query); // Get the total number of products for pagination
+
+    res.json({
+      products,
+      pagination: {
+        totalProducts,
+        totalPages: Math.ceil(totalProducts / limit),
+      },
+    });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});   
 
 router.post("/product", async function (req, res) {
 	try {

@@ -1,4 +1,5 @@
 const Category = require("../../models/category");
+const Transaction = require("../../models/transaction");
 const mongoose = require('mongoose');
 const path = require("path");
 const PORT = 3007;
@@ -102,6 +103,88 @@ router.post('/category', async (req, res) => {
 	}
 });
 
-
-// }
+// PATCH route to update a category
+router.patch('/category/:id', async function (req, res) {
+	try {
+	  const { id } = req.params;
+	  const updatedData = req.body;
+  
+	  // Validate ID
+	  if (!mongoose.Types.ObjectId.isValid(id)) {
+		return res.status(400).json({ msg: 'Invalid category ID' });
+	  }
+  
+	  // Fetch the category
+	  const category = await Category.findById(id);
+  
+	  if (!category) {
+		return res.status(404).json({ msg: 'Category not found' });
+	  }
+  
+	  // Update the category with the new data
+	  Object.assign(category, updatedData); // Update only the fields passed in the request body
+  
+	  // Save the updated category
+	  await category.save();
+  
+	  // Respond with the updated category
+	  res.json({ status: 'success', data: category });
+	} catch (err) {
+	  console.error('Error updating category:', err.message);
+	  res.status(500).send({ msg: "Server error" });
+	}
+  });
+  
+  router.get('/sales-by-category', async (req, res) => {
+	try {
+	  const salesData = await Transaction.aggregate([
+		{ $unwind: "$metadata.cartItems" },
+		{
+		  $group: {
+			_id: "$metadata.cartItems.category",
+			totalSales: {
+			  $sum: {
+				$multiply: [
+				  { $toDouble: "$metadata.cartItems.price" },
+				  { $toDouble: "$metadata.cartItems.quantity" }
+				]
+			  }
+			}
+		  }
+		},
+		{
+		  $group: {
+			_id: null,
+			categories: {
+			  $push: {
+				category: { $ifNull: ["$_id", "Unknown"] },
+				sales: "$totalSales"
+			  }
+			},
+			totalSales: { $sum: "$totalSales" }
+		  }
+		},
+		{ $unwind: "$categories" },
+		{
+		  $project: {
+			_id: 0,
+			category: "$categories.category",
+			sales: "$categories.sales",
+			percentage: {
+			  $multiply: [
+				{ $divide: ["$categories.sales", "$totalSales"] },
+				100
+			  ]
+			}
+		  }
+		}
+	  ]);
+  
+	  res.json(salesData);
+	} catch (err) {
+	  console.error('Error fetching sales by category:', err.message);
+	  res.status(500).send({ msg: "Server error" });
+	}
+  });
+  
 module.exports = router

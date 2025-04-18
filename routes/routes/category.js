@@ -135,20 +135,67 @@ router.patch('/category/:id', async function (req, res) {
 	}
   });
   
-  router.get('/sales-by-category', async (req, res) => {
+//   router.get('/sales-by-category', async (req, res) => {
+// 	try {
+// 	  const salesData = await Transaction.aggregate([
+// 		{ $unwind: "$metadata.cartItems" },
+// 		{
+// 		  $group: {
+// 			_id: "$metadata.cartItems.category",
+// 			totalSales: {
+// 			  $sum: {
+// 				$multiply: [
+// 				  { $toDouble: "$metadata.cartItems.price" },
+// 				  { $toDouble: "$metadata.cartItems.quantity" }
+// 				]
+// 			  }
+// 			}
+// 		  }
+// 		},
+// 		{
+// 		  $group: {
+// 			_id: null,
+// 			categories: {
+// 			  $push: {
+// 				category: { $ifNull: ["$_id", "Unknown"] },
+// 				sales: "$totalSales"
+// 			  }
+// 			},
+// 			totalSales: { $sum: "$totalSales" }
+// 		  }
+// 		},
+// 		{ $unwind: "$categories" },
+// 		{
+// 		  $project: {
+// 			_id: 0,
+// 			category: "$categories.category",
+// 			sales: "$categories.sales",
+// 			percentage: {
+// 			  $multiply: [
+// 				{ $divide: ["$categories.sales", "$totalSales"] },
+// 				100
+// 			  ]
+// 			}
+// 		  }
+// 		}
+// 	  ]);
+  
+// 	  res.json(salesData);
+// 	} catch (err) {
+// 	  console.error('Error fetching sales by category:', err.message);
+// 	  res.status(500).send({ msg: "Server error" });
+// 	}
+//   });
+
+router.get('/sales-by-category', async (req, res) => {
 	try {
 	  const salesData = await Transaction.aggregate([
 		{ $unwind: "$metadata.cartItems" },
 		{
 		  $group: {
 			_id: "$metadata.cartItems.category",
-			totalSales: {
-			  $sum: {
-				$multiply: [
-				  { $toDouble: "$metadata.cartItems.price" },
-				  { $toDouble: "$metadata.cartItems.quantity" }
-				]
-			  }
+			totalItemsSold: {
+			  $sum: { $toInt: "$metadata.cartItems.quantity" } // 🔥 only quantity
 			}
 		  }
 		},
@@ -158,10 +205,10 @@ router.patch('/category/:id', async function (req, res) {
 			categories: {
 			  $push: {
 				category: { $ifNull: ["$_id", "Unknown"] },
-				sales: "$totalSales"
+				totalItemsSold: "$totalItemsSold"
 			  }
 			},
-			totalSales: { $sum: "$totalSales" }
+			overallTotal: { $sum: "$totalItemsSold" }
 		  }
 		},
 		{ $unwind: "$categories" },
@@ -169,10 +216,10 @@ router.patch('/category/:id', async function (req, res) {
 		  $project: {
 			_id: 0,
 			category: "$categories.category",
-			sales: "$categories.sales",
+			totalItemsSold: "$categories.totalItemsSold",
 			percentage: {
 			  $multiply: [
-				{ $divide: ["$categories.sales", "$totalSales"] },
+				{ $divide: ["$categories.totalItemsSold", "$overallTotal"] },
 				100
 			  ]
 			}
@@ -186,5 +233,43 @@ router.patch('/category/:id', async function (req, res) {
 	  res.status(500).send({ msg: "Server error" });
 	}
   });
+
+  router.get("/sales-analytics", async (req, res) => {
+	try {
+	  const range = req.query.range || "month"; // Default to monthly
+  
+	  let groupByFormat;
+	  if (range === "day") {
+		groupByFormat = "%Y-%m-%d"; // e.g. 2025-04-17
+	  } else if (range === "week") {
+		groupByFormat = "%Y-%U"; // Year-WeekNumber
+	  } else {
+		groupByFormat = "%Y-%m"; // e.g. 2025-04
+	  }
+  
+	  const data = await Transaction.aggregate([
+		{
+		  $group: {
+			_id: { $dateToString: { format: groupByFormat, date: "$createdAt" } },
+			totalSales: { $sum: "$amount" },
+		  },
+		},
+		{ $sort: { _id: 1 } }, // sort by date ascending
+		{
+		  $project: {
+			_id: 0,
+			period: "$_id",
+			sales: "$totalSales",
+		  },
+		},
+	  ]);
+  
+	  res.json(data);
+	} catch (err) {
+	  console.error("Error fetching sales analytics", err);
+	  res.status(500).send({ msg: "Server error" });
+	}
+  });
+  
   
 module.exports = router

@@ -87,7 +87,7 @@ router.post('/payment', async (req, res) => {
 
 router.post("/products/payment", async (req, res) => {
   console.log("🔍 Incoming Request Body:", req.body);
-  const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, address, postalCode, phoneNumber } = req.body;
+  const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, country, address, postalCode, phoneNumber } = req.body;
 
   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
     return res.status(400).json({ error: "Invalid payment data." });
@@ -123,6 +123,7 @@ router.post("/products/payment", async (req, res) => {
       type: "product_purchase",
       deliveryMethod,
       ...(deliveryMethod === "delivery" && {
+        country,
         address,
         postalCode,
         phoneNumber,
@@ -185,6 +186,7 @@ router.post("/products/payment", async (req, res) => {
       const user = await User.findById(userId);
       if (user) {
         const addressExists = user.savedAddresses.some(addr =>
+          addr.country === country &&
           addr.address === address &&
           addr.postalCode === postalCode &&
           addr.phoneNumber === phoneNumber
@@ -192,6 +194,7 @@ router.post("/products/payment", async (req, res) => {
 
         if (!addressExists) {
           user.savedAddresses.push({
+            country,
             address,
             postalCode,
             phoneNumber,
@@ -439,7 +442,7 @@ router.get("/payment/callback", async (req, res) => {
     }
 
     if (paymentData.status === "success") {
-      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee, address,
+      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee, country, address,
         postalCode } = paymentData.metadata;
 
       if (type === "product_purchase") {
@@ -467,6 +470,7 @@ router.get("/payment/callback", async (req, res) => {
           deliveryMethod,
           phoneNumber,
           deliveryFee: finalDeliveryFee,
+          country: deliveryMethod === "delivery" ? country : undefined,
           address: deliveryMethod === "delivery" ? address : undefined,
           postalCode: deliveryMethod === "delivery" ? postalCode : undefined,
         });
@@ -537,7 +541,7 @@ router.get('/orders', authenticate, isAdmin, async (req, res) => {
   }
 });
 
-router.get("/orders/:orderId", async (req, res) => {
+router.get("/orders/:orderId", authenticate, isAdmin, async (req, res) => {
   const { orderId } = req.params;
 
   try {
@@ -821,5 +825,35 @@ router.get("/most-bought", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
+router.get('/sales-by-country', async (req, res) => {
+  try {
+    const countryStats = await Transaction.aggregate([
+      {
+        $group: {
+          _id: "$metadata.country", // 👈 change this path to wherever you store country info
+          totalSales: { $sum: { $toInt: "$metadata.cartItems.quantity" } },
+          totalTransactions: { $sum: 1 }
+        }
+      },
+      { $sort: { totalSales: -1 } }, // Sort by highest sales
+      { $limit: 5 }, // Only top 5 countries (or remove this if you want all)
+      {
+        $project: {
+          _id: 0,
+          country: { $ifNull: ["$_id", "Unknown"] },
+          totalSales: 1,
+          totalTransactions: 1
+        }
+      }
+    ]);
+
+    res.json(countryStats);
+  } catch (err) {
+    console.error('Error fetching sales by country:', err.message);
+    res.status(500).send({ msg: "Server error" });
+  }
+});
+
 
 module.exports = router;

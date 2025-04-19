@@ -28,8 +28,13 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'user'],
     default: 'user',
   },
+  profileImage: {  // <-- NEW FIELD
+    type: String,
+    default: "", // optional: default to empty or a placeholder image
+  },
   savedAddresses: [
     {
+      country: String,
       address: String,
       postalCode: String,
       phoneNumber: String,

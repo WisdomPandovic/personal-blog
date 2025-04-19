@@ -298,7 +298,7 @@ router.get('/sales-by-category', async (req, res) => {
   
   router.get("/sales-analytics", async (req, res) => {
 	try {
-	  const range = req.query.range || "month"; // Default to monthly
+	  const range = req.query.range || "day"; // Default to monthly
   
 	  let groupByFormat;
 	  if (range === "day") {

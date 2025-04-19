@@ -187,6 +187,59 @@ router.patch('/category/:id', async function (req, res) {
 // 	}
 //   });
 
+// router.get('/sales-by-category', async (req, res) => {
+// 	try {
+// 	  const salesData = await Transaction.aggregate([
+// 		{ $unwind: "$metadata.cartItems" },
+// 		{
+// 		  $group: {
+// 			_id: "$metadata.cartItems.category",
+// 			totalItemsSold: {
+// 			  $sum: { $toInt: "$metadata.cartItems.quantity" }
+// 			}
+// 		  }
+// 		},
+// 		{ 
+// 		  $sort: { totalItemsSold: -1 } // 👈 Sort by most sold 
+// 		},
+// 		{ 
+// 		  $limit: 4 // 👈 Limit to top 4 categories
+// 		},
+// 		{
+// 		  $group: {
+// 			_id: null,
+// 			categories: {
+// 			  $push: {
+// 				category: { $ifNull: ["$_id", "Unknown"] },
+// 				totalItemsSold: "$totalItemsSold"
+// 			  }
+// 			},
+// 			overallTotal: { $sum: "$totalItemsSold" }
+// 		  }
+// 		},
+// 		{ $unwind: "$categories" },
+// 		{
+// 		  $project: {
+// 			_id: 0,
+// 			category: "$categories.category",
+// 			totalItemsSold: "$categories.totalItemsSold",
+// 			percentage: {
+// 			  $multiply: [
+// 				{ $divide: ["$categories.totalItemsSold", "$overallTotal"] },
+// 				100
+// 			  ]
+// 			}
+// 		  }
+// 		}
+// 	  ]);
+  
+// 	  res.json(salesData);
+// 	} catch (err) {
+// 	  console.error('Error fetching sales by category:', err.message);
+// 	  res.status(500).send({ msg: "Server error" });
+// 	}
+//   });
+
 router.get('/sales-by-category', async (req, res) => {
 	try {
 	  const salesData = await Transaction.aggregate([
@@ -194,10 +247,14 @@ router.get('/sales-by-category', async (req, res) => {
 		{
 		  $group: {
 			_id: "$metadata.cartItems.category",
-			totalItemsSold: {
-			  $sum: { $toInt: "$metadata.cartItems.quantity" } // 🔥 only quantity
-			}
+			totalItemsSold: { $sum: { $toInt: "$metadata.cartItems.quantity" } }
 		  }
+		},
+		{ 
+		  $sort: { totalItemsSold: -1 } // sort by most sold 
+		},
+		{ 
+		  $limit: 4 // top 4
 		},
 		{
 		  $group: {
@@ -218,9 +275,14 @@ router.get('/sales-by-category', async (req, res) => {
 			category: "$categories.category",
 			totalItemsSold: "$categories.totalItemsSold",
 			percentage: {
-			  $multiply: [
-				{ $divide: ["$categories.totalItemsSold", "$overallTotal"] },
-				100
+			  $round: [
+				{
+				  $multiply: [
+					{ $divide: ["$categories.totalItemsSold", "$overallTotal"] },
+					100
+				  ]
+				},
+				0 // 👉 round to 0 decimal places
 			  ]
 			}
 		  }
@@ -232,8 +294,8 @@ router.get('/sales-by-category', async (req, res) => {
 	  console.error('Error fetching sales by category:', err.message);
 	  res.status(500).send({ msg: "Server error" });
 	}
-  });
-
+  });  
+  
   router.get("/sales-analytics", async (req, res) => {
 	try {
 	  const range = req.query.range || "month"; // Default to monthly

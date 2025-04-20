@@ -23,6 +23,7 @@ const OrderSchema = new mongoose.Schema({
   deliveryMethod: { type: String, enum: ["pickup", "delivery"], required: true },
   address: { type: String },
   country: { type: String },
+  countryCode: { type: String },
   postalCode: { type: String }, 
   phoneNumber: { type: String, required: function() { return this.deliveryMethod === "delivery"; } }, 
   paymentReference: { type: String, required: true, unique: true },

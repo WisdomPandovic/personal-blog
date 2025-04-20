@@ -87,7 +87,7 @@ router.post('/payment', async (req, res) => {
 
 router.post("/products/payment", async (req, res) => {
   console.log("🔍 Incoming Request Body:", req.body);
-  const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, country, address, postalCode, phoneNumber } = req.body;
+  const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, country, countryCode, address, postalCode, phoneNumber } = req.body;
 
   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
     return res.status(400).json({ error: "Invalid payment data." });
@@ -124,6 +124,7 @@ router.post("/products/payment", async (req, res) => {
       deliveryMethod,
       ...(deliveryMethod === "delivery" && {
         country,
+        countryCode,
         address,
         postalCode,
         phoneNumber,
@@ -187,6 +188,7 @@ router.post("/products/payment", async (req, res) => {
       if (user) {
         const addressExists = user.savedAddresses.some(addr =>
           addr.country === country &&
+          addr.countryCode === countryCode &&
           addr.address === address &&
           addr.postalCode === postalCode &&
           addr.phoneNumber === phoneNumber
@@ -195,6 +197,7 @@ router.post("/products/payment", async (req, res) => {
         if (!addressExists) {
           user.savedAddresses.push({
             country,
+            countryCode,
             address,
             postalCode,
             phoneNumber,
@@ -442,7 +445,7 @@ router.get("/payment/callback", async (req, res) => {
     }
 
     if (paymentData.status === "success") {
-      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee, country, address,
+      const { cartItems, type, deliveryMethod, phoneNumber, deliveryFee, country, countryCode, address,
         postalCode } = paymentData.metadata;
 
       if (type === "product_purchase") {
@@ -471,6 +474,7 @@ router.get("/payment/callback", async (req, res) => {
           phoneNumber,
           deliveryFee: finalDeliveryFee,
           country: deliveryMethod === "delivery" ? country : undefined,
+          countryCode: deliveryMethod === "delivery" ? countryCode : undefined,
           address: deliveryMethod === "delivery" ? address : undefined,
           postalCode: deliveryMethod === "delivery" ? postalCode : undefined,
         });
@@ -844,27 +848,50 @@ router.get("/most-bought", async (req, res) => {
 
 // router.get('/sales-by-country', async (req, res) => {
 //   try {
+//     // Step 1: Aggregate data to calculate total items sold per country
 //     const countryStats = await Transaction.aggregate([
-//       { $unwind: "$metadata.cartItems" }, // 🛠 unwind cart items
+//       { $unwind: "$metadata.cartItems" }, // 🛠 Unwind cart items
 //       {
 //         $group: {
 //           _id: "$metadata.country", // 👈 Group by metadata.country
 //           totalItemsSold: {
-//             $sum: { $toInt: "$metadata.cartItems.quantity" } // safely sum quantity
+//             $sum: { $toInt: "$metadata.cartItems.quantity" } // Safely sum quantity
 //           },
 //           totalTransactions: { $sum: 1 }
 //         }
 //       },
-//       { $sort: { totalItemsSold: -1 } }, // most items sold first
-//       { $limit: 5 }, // get top 5 countries
+//       {
+//         $group: {
+//           _id: null, // Group all countries together
+//           totalGlobalItemsSold: { $sum: "$totalItemsSold" }, // Calculate global total
+//           countries: {
+//             $push: {
+//               country: { $ifNull: ["$_id", "Unknown"] }, // Handle null countries
+//               totalItemsSold: "$totalItemsSold",
+//               totalTransactions: "$totalTransactions"
+//             }
+//           }
+//         }
+//       },
+//       {
+//         $unwind: "$countries" // Unwind the array of countries
+//       },
 //       {
 //         $project: {
 //           _id: 0,
-//           country: { $ifNull: ["$_id", "Unknown"] },
-//           totalItemsSold: 1,
-//           totalTransactions: 1
+//           country: "$countries.country",
+//           totalItemsSold: "$countries.totalItemsSold",
+//           totalTransactions: "$countries.totalTransactions",
+//           percentage: {
+//             $multiply: [
+//               { $divide: ["$countries.totalItemsSold", "$totalGlobalItemsSold"] }, // Calculate percentage
+//               100
+//             ]
+//           }
 //         }
-//       }
+//       },
+//       { $sort: { percentage: -1 } }, // Sort by percentage in descending order
+//       { $limit: 5 } // Limit to top 5 countries
 //     ]);
 
 //     res.json(countryStats);
@@ -881,7 +908,7 @@ router.get('/sales-by-country', async (req, res) => {
       { $unwind: "$metadata.cartItems" }, // 🛠 Unwind cart items
       {
         $group: {
-          _id: "$metadata.country", // 👈 Group by metadata.country
+          _id: "$metadata.country", // 👈 Group by metadata.country (assumed to be ISO 3166-1 alpha-2 code)
           totalItemsSold: {
             $sum: { $toInt: "$metadata.cartItems.quantity" } // Safely sum quantity
           },
@@ -894,7 +921,7 @@ router.get('/sales-by-country', async (req, res) => {
           totalGlobalItemsSold: { $sum: "$totalItemsSold" }, // Calculate global total
           countries: {
             $push: {
-              country: { $ifNull: ["$_id", "Unknown"] }, // Handle null countries
+              countryCode: { $ifNull: ["$_id", "Unknown"] }, // Use countryCode instead of country name
               totalItemsSold: "$totalItemsSold",
               totalTransactions: "$totalTransactions"
             }
@@ -907,7 +934,7 @@ router.get('/sales-by-country', async (req, res) => {
       {
         $project: {
           _id: 0,
-          country: "$countries.country",
+          countryCode: "$countries.countryCode", // Include countryCode in the output
           totalItemsSold: "$countries.totalItemsSold",
           totalTransactions: "$countries.totalTransactions",
           percentage: {

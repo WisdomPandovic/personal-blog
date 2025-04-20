@@ -842,29 +842,84 @@ router.get("/most-bought", async (req, res) => {
   }
 });
 
+// router.get('/sales-by-country', async (req, res) => {
+//   try {
+//     const countryStats = await Transaction.aggregate([
+//       { $unwind: "$metadata.cartItems" }, // 🛠 unwind cart items
+//       {
+//         $group: {
+//           _id: "$metadata.country", // 👈 Group by metadata.country
+//           totalItemsSold: {
+//             $sum: { $toInt: "$metadata.cartItems.quantity" } // safely sum quantity
+//           },
+//           totalTransactions: { $sum: 1 }
+//         }
+//       },
+//       { $sort: { totalItemsSold: -1 } }, // most items sold first
+//       { $limit: 5 }, // get top 5 countries
+//       {
+//         $project: {
+//           _id: 0,
+//           country: { $ifNull: ["$_id", "Unknown"] },
+//           totalItemsSold: 1,
+//           totalTransactions: 1
+//         }
+//       }
+//     ]);
+
+//     res.json(countryStats);
+//   } catch (err) {
+//     console.error('Error fetching sales by country:', err.message);
+//     res.status(500).send({ msg: "Server error" });
+//   }
+// });
+
 router.get('/sales-by-country', async (req, res) => {
   try {
+    // Step 1: Aggregate data to calculate total items sold per country
     const countryStats = await Transaction.aggregate([
-      { $unwind: "$metadata.cartItems" }, // 🛠 unwind cart items
+      { $unwind: "$metadata.cartItems" }, // 🛠 Unwind cart items
       {
         $group: {
           _id: "$metadata.country", // 👈 Group by metadata.country
           totalItemsSold: {
-            $sum: { $toInt: "$metadata.cartItems.quantity" } // safely sum quantity
+            $sum: { $toInt: "$metadata.cartItems.quantity" } // Safely sum quantity
           },
           totalTransactions: { $sum: 1 }
         }
       },
-      { $sort: { totalItemsSold: -1 } }, // most items sold first
-      { $limit: 5 }, // get top 5 countries
+      {
+        $group: {
+          _id: null, // Group all countries together
+          totalGlobalItemsSold: { $sum: "$totalItemsSold" }, // Calculate global total
+          countries: {
+            $push: {
+              country: { $ifNull: ["$_id", "Unknown"] }, // Handle null countries
+              totalItemsSold: "$totalItemsSold",
+              totalTransactions: "$totalTransactions"
+            }
+          }
+        }
+      },
+      {
+        $unwind: "$countries" // Unwind the array of countries
+      },
       {
         $project: {
           _id: 0,
-          country: { $ifNull: ["$_id", "Unknown"] },
-          totalItemsSold: 1,
-          totalTransactions: 1
+          country: "$countries.country",
+          totalItemsSold: "$countries.totalItemsSold",
+          totalTransactions: "$countries.totalTransactions",
+          percentage: {
+            $multiply: [
+              { $divide: ["$countries.totalItemsSold", "$totalGlobalItemsSold"] }, // Calculate percentage
+              100
+            ]
+          }
         }
-      }
+      },
+      { $sort: { percentage: -1 } }, // Sort by percentage in descending order
+      { $limit: 5 } // Limit to top 5 countries
     ]);
 
     res.json(countryStats);

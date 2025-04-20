@@ -35,6 +35,7 @@ const UserSchema = new mongoose.Schema({
   savedAddresses: [
     {
       country: String,
+      countryCode: String,
       address: String,
       postalCode: String,
       phoneNumber: String,

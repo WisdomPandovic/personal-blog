@@ -557,6 +557,22 @@ router.get("/orders/:orderId", authenticate, isAdmin, async (req, res) => {
   }
 });
 
+router.get("/order/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.status(200).json({ order });
+  } catch (err) {
+    console.error("Error fetching order:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // GET /orders/user/:userId
 router.get("/orders/user/:userId", async (req, res) => {
   const { userId } = req.params;
@@ -829,20 +845,23 @@ router.get("/most-bought", async (req, res) => {
 router.get('/sales-by-country', async (req, res) => {
   try {
     const countryStats = await Transaction.aggregate([
+      { $unwind: "$metadata.cartItems" }, // 🛠 unwind cart items
       {
         $group: {
-          _id: "$metadata.country", // 👈 change this path to wherever you store country info
-          totalSales: { $sum: { $toInt: "$metadata.cartItems.quantity" } },
+          _id: "$metadata.country", // 👈 Group by metadata.country
+          totalItemsSold: {
+            $sum: { $toInt: "$metadata.cartItems.quantity" } // safely sum quantity
+          },
           totalTransactions: { $sum: 1 }
         }
       },
-      { $sort: { totalSales: -1 } }, // Sort by highest sales
-      { $limit: 5 }, // Only top 5 countries (or remove this if you want all)
+      { $sort: { totalItemsSold: -1 } }, // most items sold first
+      { $limit: 5 }, // get top 5 countries
       {
         $project: {
           _id: 0,
           country: { $ifNull: ["$_id", "Unknown"] },
-          totalSales: 1,
+          totalItemsSold: 1,
           totalTransactions: 1
         }
       }
@@ -854,6 +873,5 @@ router.get('/sales-by-country', async (req, res) => {
     res.status(500).send({ msg: "Server error" });
   }
 });
-
 
 module.exports = router;

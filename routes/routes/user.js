@@ -1,13 +1,33 @@
 require('dotenv').config();
 
 const User = require('../../models/user');
+const UAParser = require('ua-parser-js');
+const multer = require("multer");
 const bcrypt = require('bcryptjs');
+const authenticate = require('../../middleware/authenticate')
+const isAdmin = require('../../middleware/admin');
 const Post = require("../../models/post");
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require("../../utils/emailService");
+
+const storage = multer.diskStorage({
+    destination: (reg, file, cb) => {
+        //let _dir = path.join(__dirname, "../../public/postimage");
+        //cb(null, _dir);
+        // cb(null, )
+        cb(null, "public/postimage")
+
+    },
+    filename: (reg, file, cb) => {
+        let filename = file.originalname.toLowerCase();
+        cb(null, filename);
+    },
+});
+
+const postimage = multer({ storage: storage });
 
 router.get('/', (req, res) => {
     res.json({ msg: "This is my user index route" });
@@ -100,7 +120,7 @@ router.get('/users/:id', async (req, res) => {
 //     }
 // });
 
-router.post('/admin/signup', async (req, res) => {
+router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
     try {
         const { username, email, password, phoneNumber } = req.body;
 
@@ -110,11 +130,27 @@ router.post('/admin/signup', async (req, res) => {
             return res.status(400).json({ msg: 'Email or Username already exists' });
         }
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: "Invalid email format." });
+        }
+
+        // Password validation
+        const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                error: "Password must be at least 8 characters long and contain at least one special character."
+            });
+        }
+
+        const salt = await bcrypt.genSalt(10); // Adjust salt rounds as needed
+        const hashedPassword = await bcrypt.hash(password, salt);
+
         // Create a new admin user
         const newUser = new User({
             username,
-            email,
-            password,
+            email: email.toLowerCase(),
+            password: hashedPassword,
             phoneNumber,
             isAdmin: true, // Make sure the user is an admin
             role: 'admin', // Set the role to 'admin'
@@ -239,7 +275,7 @@ router.post('/admin/signin', async (req, res) => {
         }
 
         // Create and sign a JWT token
-        const payload = { userId: user._id, isAdmin: user.isAdmin, role: user.role };
+        const payload = { userId: user._id, isAdmin: user.isAdmin, role: user.role, profilePhoto: user.profileImage, };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });  // Replace 'your_jwt_secret' with your actual secret key
 
         // Respond with the JWT token
@@ -376,6 +412,17 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ msg: 'Please verify your email before logging in.' });
         }
 
+        // --------- Detect device from User-Agent ---------
+        const parser = new UAParser(req.headers['user-agent']);
+        const deviceType = parser.getDevice().type || "desktop"; // if undefined, assume desktop
+        let device = "Desktop";
+        if (deviceType === "mobile") device = "Mobile";
+        if (deviceType === "tablet") device = "Tablet";
+
+        // --------- Update user's deviceType field ---------
+        user.deviceType = device;
+        await user.save(); // Save updated deviceType
+
         const payload = { userId: user._id, role: user.role, userEmail: user.email, userName: user.username };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
@@ -390,40 +437,115 @@ router.get("/user/savedAddress/:userId", async (req, res) => {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({ savedAddresses: user.savedAddresses });
-  });
+});
 
-  router.post("/user/:userId/address", async (req, res) => {
+router.post("/user/:userId/address", async (req, res) => {
     const { address, postalCode, phoneNumber, label } = req.body;
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
-  
+
     user.savedAddresses.push({ address, postalCode, phoneNumber, label });
     await user.save();
     res.json({ message: "Address added", savedAddresses: user.savedAddresses });
-  });
-  
-  router.put("/user/:userId/address/:addressId", async (req, res) => {
+});
+
+router.put("/user/:userId/address/:addressId", async (req, res) => {
     const { address, postalCode, phoneNumber, label } = req.body;
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
-  
+
     const addr = user.savedAddresses.id(req.params.addressId);
     if (!addr) return res.status(404).json({ error: "Address not found" });
-  
+
     addr.set({ address, postalCode, phoneNumber, label });
     await user.save();
     res.json({ message: "Address updated", savedAddresses: user.savedAddresses });
-  });
+});
 
-  router.delete("/user/:userId/address/:addressId", async (req, res) => {
+router.delete("/user/:userId/address/:addressId", async (req, res) => {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
-  
+
     user.savedAddresses = user.savedAddresses.filter(a => a._id.toString() !== req.params.addressId);
     await user.save();
     res.json({ message: "Address deleted", savedAddresses: user.savedAddresses });
-  });  
- 
+});
+
+// Upload Admin Profile Photo
+router.patch('/admin/:id/photo', postimage.single('photo'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        let photoUrl;
+
+        if (req.file) {
+            // If a file is uploaded
+            photoUrl = `${req.protocol}://${req.get('host')}/postimage/${req.file.filename}`;
+        } else if (req.body.profileImage) {
+            // If a URL is sent
+            photoUrl = req.body.profileImage;
+        } else {
+            return res.status(400).json({ msg: 'No photo uploaded or URL provided' });
+        }
+
+        user.profileImage = photoUrl;
+        await user.save();
+
+        res.json({ msg: 'Profile photo updated successfully', profileImage: photoUrl });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: 'Server error', error: err.message });
+    }
+});
+
+router.get('/admin-profile', authenticate, isAdmin, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId); // Use userId from the token
+
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        // Send user details including profile photo
+        res.json({
+            user: {
+                username: user.username,
+                email: user.email,
+                profileImage: user.profileImage, // Return profile photo URL
+                role: user.role
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: 'Server error', error: err.message });
+    }
+});
+
+router.get('/getDeviceBreakdown', async (req, res) => {
+    const breakdown = await User.aggregate([
+        {
+            $group: {
+                _id: "$deviceType",
+                count: { $sum: 1 }
+            }
+        }
+    ]);
+
+    const total = breakdown.reduce((acc, curr) => acc + curr.count, 0);
+
+    const formatted = breakdown.map(item => ({
+        device: item._id || "Unknown",
+        percentage: ((item.count / total) * 100).toFixed(1)
+    }));
+
+    res.json(formatted);
+});
+
 
 // async function testHashingAndComparison() {
 //   const password = 'wisdompandovic@';

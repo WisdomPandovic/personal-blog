@@ -42,6 +42,10 @@ const UserSchema = new mongoose.Schema({
       label: String, // e.g., 'Home', 'Work'
     }
   ],  
+  deviceType: {
+    type: String,
+    enum: ["Desktop", "Mobile", "Tablet"],
+  },  
   lastLogin: {
     type: Date,
     default: null,

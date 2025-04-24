@@ -130,6 +130,7 @@ const paymentRoutes = require('./routes/routes/payment');
 const productRoutes = require('./routes/routes/product'); 
 const productPaymentRoutes = require('./routes/routes/productPayment');
 const transactionRoutes = require('./routes/routes/transaction');
+const aiRoutes = require('./routes/routes/ai');
 
 const app = express();
 const server = http.createServer(app); // Use http server for both Express & Socket.IO
@@ -189,6 +190,7 @@ app.use('/api', paymentRoutes);
 app.use('/api', productRoutes);
 app.use('/api', productPaymentRoutes);
 app.use('/api', transactionRoutes);
+app.use('/api', aiRoutes);
 
 // 🧠 Live streaming logic
 let liveStream = {

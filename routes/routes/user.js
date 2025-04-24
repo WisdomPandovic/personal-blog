@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const authenticate = require('../../middleware/authenticate')
 const isAdmin = require('../../middleware/admin');
 const Post = require("../../models/post");
+const PageView = require('../../models/PageView');
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -165,23 +166,51 @@ router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
     }
 });
 
+// router.patch('/users/:id', async (req, res) => {
+//     try {
+//         let { id } = req.params;
+//         let user = await User.findById(id);
+
+//         if (!user) return res.status(404).json({ msg: "User does not exist", code: 404 });
+
+//         // Update only the fields provided in the request body
+//         Object.assign(user, req.body);
+
+//         await user.save();
+
+//         res.json(user);
+//     } catch (err) {
+//         res.status(500).send(err.message);
+//     }
+// });
+
 router.patch('/users/:id', async (req, res) => {
     try {
-        let { id } = req.params;
-        let user = await User.findById(id);
-
-        if (!user) return res.status(404).json({ msg: "User does not exist", code: 404 });
-
-        // Update only the fields provided in the request body
-        Object.assign(user, req.body);
-
-        await user.save();
-
-        res.json(user);
+      const { id } = req.params;
+      const user = await User.findById(id);
+  
+      if (!user) {
+        return res.status(404).json({ msg: "User does not exist", code: 404 });
+      }
+  
+      // Update only the fields provided in the request body
+      Object.assign(user, req.body);
+      await user.save();
+  
+      res.status(200).json({
+        msg: "User profile updated successfully",
+        code: 200,
+        user,
+      });
     } catch (err) {
-        res.status(500).send(err.message);
+      console.error("Update error:", err);
+      res.status(500).json({
+        msg: "Server error",
+        code: 500,
+        error: err.message,
+      });
     }
-});
+  });  
 
 router.delete('/user/:id', async (req, res) => {
     try {
@@ -273,6 +302,9 @@ router.post('/admin/signin', async (req, res) => {
         if (!isMatch) {
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
+
+        user.lastLogin = new Date();
+        await user.save();
 
         // Create and sign a JWT token
         const payload = { userId: user._id, isAdmin: user.isAdmin, role: user.role, profilePhoto: user.profileImage, };
@@ -421,6 +453,7 @@ router.post('/login', async (req, res) => {
 
         // --------- Update user's deviceType field ---------
         user.deviceType = device;
+        user.lastLogin = new Date();
         await user.save(); // Save updated deviceType
 
         const payload = { userId: user._id, role: user.role, userEmail: user.email, userName: user.username };
@@ -514,10 +547,15 @@ router.get('/admin-profile', authenticate, isAdmin, async (req, res) => {
         // Send user details including profile photo
         res.json({
             user: {
+                userId: user.id,
                 username: user.username,
                 email: user.email,
-                profileImage: user.profileImage, // Return profile photo URL
-                role: user.role
+                profileImage: user.profileImage, 
+                lastName: user.lastName,
+                firstName: user.firstName,
+                phoneNumber:user.phoneNumber,
+                role: user.role,
+                savedAddresses: user.savedAddresses,
             },
         });
     } catch (err) {
@@ -540,11 +578,87 @@ router.get('/getDeviceBreakdown', async (req, res) => {
 
     const formatted = breakdown.map(item => ({
         device: item._id || "Unknown",
-        percentage: ((item.count / total) * 100).toFixed(1)
+        percentage: Math.round((item.count / total) * 100)
     }));
 
     res.json(formatted);
 });
+
+router.post('/track-pageview', async (req, res) => {
+    try {
+      const { pageUrl, userId, ipAddress } = req.body;
+  
+      await PageView.create({
+        pageUrl,
+        userId,
+        ipAddress,
+      });
+  
+      res.status(201).json({ message: 'Page view tracked successfully' });
+    } catch (error) {
+      console.error('Error tracking pageview:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  router.get('/get-pageviews', async (req, res) => {
+    try {
+      const pageViews = await PageView.aggregate([
+        {
+          $group: {
+            _id: "$pageUrl",
+            views: { $sum: 1 },
+            uniqueVisitors: { $addToSet: "$ipAddress" } // Assuming IP addresses as unique visitors
+          }
+        },
+        {
+          $project: {
+            pageUrl: "$_id",
+            views: 1,
+            uniqueVisitorCount: { $size: "$uniqueVisitors" },
+            _id: 0
+          }
+        }
+      ]);
+  
+      res.json(pageViews);
+    } catch (error) {
+      console.error('Error getting page views:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+router.post('/update-password', authenticate, isAdmin, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        // Fetch the user from DB using the ID from JWT
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        // Check if user is admin (optional: only allow admin users to change password here)
+        if (!user.isAdmin) return res.status(403).json({ msg: 'Access denied. Not an admin.' });
+
+        // Check current password
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) return res.status(400).json({ msg: 'Current password is incorrect' });
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const hashed = await bcrypt.hash(newPassword, salt);
+
+        // Update and save
+        user.password = hashed;
+        await user.save();
+
+        res.json({ msg: 'Password updated successfully' });
+    } catch (err) {
+        console.error('Password update error:', err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+module.exports = router;
 
 
 // async function testHashingAndComparison() {

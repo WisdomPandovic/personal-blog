@@ -5,8 +5,10 @@ const UAParser = require('ua-parser-js');
 const multer = require("multer");
 const bcrypt = require('bcryptjs');
 const authenticate = require('../../middleware/authenticate')
+// const authorizeRoles = require('../../middleware/authorize')
 const isAdmin = require('../../middleware/admin');
 const Post = require("../../models/post");
+const Role = require('../../models/role');
 const PageView = require('../../models/PageView');
 const express = require('express');
 const router = express.Router();
@@ -121,9 +123,59 @@ router.get('/users/:id', async (req, res) => {
 //     }
 // });
 
-router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
+// router.post('/admin/signup', authenticate, isAdmin,  async (req, res) => {
+//     try {
+//         const { username, email, password, phoneNumber } = req.body;
+
+//         // Check if email or username already exists
+//         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+//         if (existingUser) {
+//             return res.status(400).json({ msg: 'Email or Username already exists' });
+//         }
+
+//         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//         if (!emailRegex.test(email)) {
+//             return res.status(400).json({ error: "Invalid email format." });
+//         }
+
+//         // Password validation
+//         const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
+//         if (!passwordRegex.test(password)) {
+//             return res.status(400).json({
+//                 error: "Password must be at least 8 characters long and contain at least one special character."
+//             });
+//         }
+
+//         const salt = await bcrypt.genSalt(10); // Adjust salt rounds as needed
+//         const hashedPassword = await bcrypt.hash(password, salt);
+
+//         const adminRole = await Role.findOne({ title: 'admin' });
+//         if (!adminRole) {
+//             return res.status(400).json({ msg: 'Admin role not found' });
+//         }
+
+//         // Create a new admin user
+//         const newUser = new User({
+//             username,
+//             email: email.toLowerCase(),
+//             password: hashedPassword,
+//             phoneNumber,
+//             role: adminRole._id,
+//             roleName: adminRole.title, // Set the role to 'admin'
+//         });
+
+//         // Save the new user
+//         await newUser.save();
+//         res.status(201).json({ msg: 'Admin user created successfully' });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ msg: 'Server error' });
+//     }
+// });
+
+router.post('/admin/signup', authenticate, async (req, res) => {
     try {
-        const { username, email, password, phoneNumber } = req.body;
+        const { username, email, password, phoneNumber, roleTitle } = req.body;
 
         // Check if email or username already exists
         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -131,12 +183,13 @@ router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
             return res.status(400).json({ msg: 'Email or Username already exists' });
         }
 
+        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({ error: "Invalid email format." });
         }
 
-        // Password validation
+        // Validate password format
         const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
         if (!passwordRegex.test(password)) {
             return res.status(400).json({
@@ -144,22 +197,30 @@ router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
             });
         }
 
-        const salt = await bcrypt.genSalt(10); // Adjust salt rounds as needed
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create a new admin user
+        // Find the role based on the title (e.g., 'admin')
+        const role = await Role.findOne({ title: roleTitle });
+        if (!role) {
+            return res.status(400).json({ msg: 'Role not found' });
+        }
+
+        // Create a new user with the selected role
         const newUser = new User({
             username,
             email: email.toLowerCase(),
             password: hashedPassword,
             phoneNumber,
-            isAdmin: true, // Make sure the user is an admin
-            role: 'admin', // Set the role to 'admin'
+            role: role._id,  // Reference to the Role
+            roleName: role.title, // Set the roleName based on the role's title
+            hasAdminAccess: true,
         });
 
         // Save the new user
         await newUser.save();
-        res.status(201).json({ msg: 'Admin user created successfully' });
+        res.status(201).json({ msg: 'User created successfully' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });
@@ -186,31 +247,31 @@ router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
 
 router.patch('/users/:id', async (req, res) => {
     try {
-      const { id } = req.params;
-      const user = await User.findById(id);
-  
-      if (!user) {
-        return res.status(404).json({ msg: "User does not exist", code: 404 });
-      }
-  
-      // Update only the fields provided in the request body
-      Object.assign(user, req.body);
-      await user.save();
-  
-      res.status(200).json({
-        msg: "User profile updated successfully",
-        code: 200,
-        user,
-      });
+        const { id } = req.params;
+        const user = await User.findById(id);
+
+        if (!user) {
+            return res.status(404).json({ msg: "User does not exist", code: 404 });
+        }
+
+        // Update only the fields provided in the request body
+        Object.assign(user, req.body);
+        await user.save();
+
+        res.status(200).json({
+            msg: "User profile updated successfully",
+            code: 200,
+            user,
+        });
     } catch (err) {
-      console.error("Update error:", err);
-      res.status(500).json({
-        msg: "Server error",
-        code: 500,
-        error: err.message,
-      });
+        console.error("Update error:", err);
+        res.status(500).json({
+            msg: "Server error",
+            code: 500,
+            error: err.message,
+        });
     }
-  });  
+});
 
 router.delete('/user/:id', async (req, res) => {
     try {
@@ -287,13 +348,19 @@ router.post('/admin/signin', async (req, res) => {
         const { email, password } = req.body;
 
         // Check if user exists
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).populate('role');
         if (!user) {
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
 
+         // Check if the user is blocked
+         if (user.status === 'blocked') {
+            console.log("User is blocked.");
+            return res.status(403).json({ msg: 'Your account is blocked, please contact support.' });
+        }
+
         // Check if the user is an admin
-        if (!user.isAdmin) {
+        if (!user.hasAdminAccess) {
             return res.status(403).json({ msg: 'You are not authorized to sign in' });
         }
 
@@ -307,11 +374,28 @@ router.post('/admin/signin', async (req, res) => {
         await user.save();
 
         // Create and sign a JWT token
-        const payload = { userId: user._id, isAdmin: user.isAdmin, role: user.role, profilePhoto: user.profileImage, };
+        const payload = {
+            userId: user._id,
+            hasAdminAccess: user.hasAdminAccess,  // You might not need this anymore
+            role: user.role,        // Role ObjectId reference
+            roleName: user.roleName, // Include roleName here for easier admin check
+            profilePhoto: user.profileImage,
+        };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });  // Replace 'your_jwt_secret' with your actual secret key
 
         // Respond with the JWT token
-        res.json({ msg: 'Sign-in successful', token });
+        // res.json({ msg: 'Sign-in successful', token });
+        res.json({
+            msg: 'Sign-in successful',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                profileImage: user.profileImage,
+                role: payload.role, // includes title + permissions
+            },
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });
@@ -380,13 +464,18 @@ router.post("/users", async (req, res) => {
         console.log("Password before hashing:", password);
         console.log("Hashed password:", hashedPassword);
 
+        // Automatically assign "user" role
+        const userRole = await Role.findOne({ title: 'user' });
+        if (!userRole) return res.status(400).json({ msg: 'Default role "user" not found' });
+
         // Create and save the new user
         const user = new User({
             username,
             email: email.toLowerCase(),
             phoneNumber,
             password: hashedPassword,  // Save hashed password
-            role,
+            role: userRole._id,
+            roleName: userRole.title,
             isVerified: false,
             verificationToken
         });
@@ -421,6 +510,12 @@ router.post('/login', async (req, res) => {
         if (!user) {
             console.log("User not found in the database");
             return res.status(404).json({ msg: 'Invalid username or password' });
+        }
+
+         // Check if the user is blocked
+         if (user.status === 'blocked') {
+            console.log("User is blocked.");
+            return res.status(403).json({ msg: 'Your account is blocked, please contact support.' });
         }
 
         console.log("Retrieved hashed password from the database:", user.password);
@@ -538,8 +633,8 @@ router.patch('/admin/:id/photo', postimage.single('photo'), async (req, res) => 
 
 router.get('/admin-profile', authenticate, isAdmin, async (req, res) => {
     try {
-        const user = await User.findById(req.user.userId); // Use userId from the token
-
+        const user = await User.findById(req.user._id); // Use userId from the token
+        console.log('Decoded JWT payload:', req.user);
         if (!user) {
             return res.status(404).json({ msg: 'User not found' });
         }
@@ -550,11 +645,12 @@ router.get('/admin-profile', authenticate, isAdmin, async (req, res) => {
                 userId: user.id,
                 username: user.username,
                 email: user.email,
-                profileImage: user.profileImage, 
+                profileImage: user.profileImage,
                 lastName: user.lastName,
                 firstName: user.firstName,
-                phoneNumber:user.phoneNumber,
+                phoneNumber: user.phoneNumber,
                 role: user.role,
+                roleName: user.roleName,
                 savedAddresses: user.savedAddresses,
             },
         });
@@ -586,47 +682,47 @@ router.get('/getDeviceBreakdown', async (req, res) => {
 
 router.post('/track-pageview', async (req, res) => {
     try {
-      const { pageUrl, userId, ipAddress } = req.body;
-  
-      await PageView.create({
-        pageUrl,
-        userId,
-        ipAddress,
-      });
-  
-      res.status(201).json({ message: 'Page view tracked successfully' });
-    } catch (error) {
-      console.error('Error tracking pageview:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  });
+        const { pageUrl, userId, ipAddress } = req.body;
 
-  router.get('/get-pageviews', async (req, res) => {
-    try {
-      const pageViews = await PageView.aggregate([
-        {
-          $group: {
-            _id: "$pageUrl",
-            views: { $sum: 1 },
-            uniqueVisitors: { $addToSet: "$ipAddress" } // Assuming IP addresses as unique visitors
-          }
-        },
-        {
-          $project: {
-            pageUrl: "$_id",
-            views: 1,
-            uniqueVisitorCount: { $size: "$uniqueVisitors" },
-            _id: 0
-          }
-        }
-      ]);
-  
-      res.json(pageViews);
+        await PageView.create({
+            pageUrl,
+            userId,
+            ipAddress,
+        });
+
+        res.status(201).json({ message: 'Page view tracked successfully' });
     } catch (error) {
-      console.error('Error getting page views:', error);
-      res.status(500).json({ message: 'Internal server error' });
+        console.error('Error tracking pageview:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
-  });
+});
+
+router.get('/get-pageviews', async (req, res) => {
+    try {
+        const pageViews = await PageView.aggregate([
+            {
+                $group: {
+                    _id: "$pageUrl",
+                    views: { $sum: 1 },
+                    uniqueVisitors: { $addToSet: "$ipAddress" } // Assuming IP addresses as unique visitors
+                }
+            },
+            {
+                $project: {
+                    pageUrl: "$_id",
+                    views: 1,
+                    uniqueVisitorCount: { $size: "$uniqueVisitors" },
+                    _id: 0
+                }
+            }
+        ]);
+
+        res.json(pageViews);
+    } catch (error) {
+        console.error('Error getting page views:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
 
 router.post('/update-password', authenticate, isAdmin, async (req, res) => {
     try {
@@ -637,7 +733,7 @@ router.post('/update-password', authenticate, isAdmin, async (req, res) => {
         if (!user) return res.status(404).json({ msg: 'User not found' });
 
         // Check if user is admin (optional: only allow admin users to change password here)
-        if (!user.isAdmin) return res.status(403).json({ msg: 'Access denied. Not an admin.' });
+        if (!user.hasAdminAccess) return res.status(403).json({ msg: 'Access denied. Not an admin.' });
 
         // Check current password
         const isMatch = await bcrypt.compare(currentPassword, user.password);
@@ -658,7 +754,71 @@ router.post('/update-password', authenticate, isAdmin, async (req, res) => {
     }
 });
 
-module.exports = router;
+// router.put('/admin/block/:id', authenticate, isAdmin, async (req, res) => {
+//     try {
+//         const { id } = req.params;
+
+//         // Validate ObjectId format before querying
+//         if (!mongoose.Types.ObjectId.isValid(id)) {
+//             return res.status(400).json({ message: 'Invalid User ID format' });
+//         }
+
+//         // Find user by ID
+//         const user = await User.findById(id);
+//         if (!user) {
+//             return res.status(404).json({ message: 'User not found' });
+//         }
+//         // Check if the user is already blocked
+//         if (user.status === 'blocked') {
+//             return res.status(400).json({ message: 'User is already blocked' });
+//         }
+
+//         // Update user status to 'blocked'
+//         user.status = 'blocked';
+//         await user.save();
+
+//         res.status(200).json({ message: 'User has been blocked successfully' });
+
+//     } catch (err) {
+//         console.error('Error blocking user:', err);
+//         res.status(500).json({ error: 'Internal Server Error', message: err.message });
+//     }
+// });
+
+router.put('/admin/block/:id', authenticate, isAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Validate ObjectId format before querying
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid User ID format' });
+        }
+
+        // Find user by ID
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if the user is currently blocked or active and toggle status
+        if (user.status === 'blocked') {
+            // Unblock the user
+            user.status = 'active';
+            await user.save();
+            return res.status(200).json({ message: 'User has been unblocked successfully' });
+        } else {
+            // Block the user
+            user.status = 'blocked';
+            await user.save();
+            return res.status(200).json({ message: 'User has been blocked successfully' });
+        }
+
+    } catch (err) {
+        console.error('Error updating user status:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+});
+
 
 
 // async function testHashingAndComparison() {

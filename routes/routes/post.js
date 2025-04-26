@@ -1,5 +1,6 @@
 const Post = require("../../models/post");
 const authenticate = require('../../middleware/authenticate'); 
+const isAdmin = require('../../middleware/admin'); 
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
 const multer = require("multer");
@@ -39,29 +40,6 @@ router.get('/post', async function (req, res) {
 		res.status(500).send(err.message)
 	}
 });
-
-// router.get('/post/:id', async function (req, res) {
-// 	try {
-// 		let { id } = req.params;
-// 		let post = await Post.findById(id).populate('category').populate('user')
-// 			.populate({
-// 				path: 'comments.comment_user',
-// 				select: 'username',
-// 			})
-// 			.populate('comments.text')
-// 			.lean();
-
-// 		if (!post) {
-// 			return res.status(404).json({ message: 'Post not found' });
-// 		};
-// 		console.log('Post:', post);
-// 		console.log(post.comments)
-// 		res.json(post);
-// 	} catch (err) {
-
-// 		res.status(500).send(err.message)
-// 	}
-// });
 
 router.put('/post/:id', async function (req, res) {
 	try {
@@ -433,110 +411,6 @@ router.get('/posts-with-users', async function (req, res) {
 	}
 });
 
-// router.post('/post', postimage.any(), async function (req, res) {
-// 	try {
-// 		console.log('Received request body:', req.body);
-// 		console.log('Received files:', req.files);
-
-// 		const { title, header, location, content, price, category, user } = req.body;
-
-// 		// Ensure all required fields are provided
-// 		if (!title) {
-// 			return res.status(400).json({ message: "Title is required." });
-// 		}
-// 		if (!header) {
-// 			return res.status(400).json({ message: "Header is required." });
-// 		}
-// 		if (!content) {
-// 			return res.status(400).json({ message: "Content is required." });
-// 		}
-// 		if (!price) {
-// 			return res.status(400).json({ message: "Price is required." });
-// 		}
-// 		if (!category) {
-// 			return res.status(400).json({ message: "Category is required." });
-// 		}
-// 		if (!user) {
-// 			return res.status(400).json({ message: "User is required." });
-// 		}
-
-// 		// Validate user ID
-// 		if (!ObjectId.isValid(user)) {
-// 			return res.status(400).json({ msg: 'Invalid user ID' });
-// 		}
-
-// 		const foundUser = await User.findById(user);
-// 		if (!foundUser) {
-// 			return res.status(404).json({ msg: 'User not found' });
-// 		}
-
-// 		if (foundUser.role !== 'admin') {
-// 			return res.status(403).json({ msg: 'Only admins can create posts' });
-// 		}
-
-// 		// Validate category
-// 		if (!ObjectId.isValid(category)) {
-// 			return res.status(400).json({ msg: 'Invalid category ID' });
-// 		}
-
-// 		const foundCategory = await Category.findById(category);
-// 		if (!foundCategory) {
-// 			return res.status(404).json({ msg: 'Category not found' });
-// 		}
-
-// 		// Ensure we have the files and handle them
-// 		let imagePaths = [];  // Store multiple images
-// 		let videoPath = "";   // Store one video
-
-// 		if (req.files && req.files.length > 0) {
-// 			req.files.forEach(file => {
-// 				if (file.fieldname === 'image[]') {
-// 					imagePaths.push(FILE_PATH + file.filename); // Store multiple images
-// 				} else if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
-// 					if (videoPath) {
-// 						return res.status(400).json({ msg: 'Only one video is allowed.' }); // Allow only one video
-// 					}
-// 					videoPath = FILE_PATH + file.filename; // Store one video
-// 				}
-// 			});
-// 		}
-
-// 		if (imagePaths.length === 0) {
-// 			return res.status(400).json({ msg: 'At least one image is required.' });
-// 		}
-// 		if (!videoPath) {
-// 			return res.status(400).json({ msg: 'At least one video is required.' });
-// 		}
-
-// 		// Create a new post
-// 		const newPost = new Post({
-// 			title,
-// 			images: imagePaths,   // Store multiple images
-// 			video: videoPath,     // Store one video
-// 			header,
-// 			location,
-// 			content,
-// 			price,
-// 			category,
-// 			user,
-// 		});
-
-// 		await newPost.save();
-
-// 		// Update category with the new post ID
-// 		await Category.findByIdAndUpdate(category, { $push: { posts: newPost._id } });
-
-// 		res.status(200).json({
-// 			success: true,
-// 			message: 'Post created successfully',
-// 			data: newPost,
-// 		});
-// 	} catch (err) {
-// 		console.error('Error creating post:', err);
-// 		res.status(500).json({ success: false, message: err.message });
-// 	}
-// });
-
 router.post("/post", async function (req, res) {
 	try {
 		console.log("Received request body:", req.body);
@@ -633,7 +507,7 @@ router.get('/post/:id', authenticate, async (req, res) => {
         const { id } = req.params;
         const userId = req.user.userId;  // Access the decoded userId from the token
 
-	     // Validate ObjectId format before querying
+		 // Validate ObjectId format before querying
 		 if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: 'Invalid Post ID format' });
         }
@@ -663,9 +537,9 @@ router.get('/post/:id', authenticate, async (req, res) => {
 		 }
  
 		 // Allow admin to view the post without payment
-		 if (user.isAdmin) {
+		 if (user.hasAdminAccess) {
 			return res.status(200).json(post); // Admin can view the post
-		}
+		}				
 
         // Check if the post is paid
         if (post.paid) {
@@ -684,5 +558,57 @@ router.get('/post/:id', authenticate, async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 });
+
+router.patch('/post/:id', authenticate, isAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, header, location, content, price, category, images, video, tag } = req.body;
+
+        // Validate ObjectId format before querying
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Post ID format' });
+        }
+
+        // Fetch the post by ID
+        let post = await Post.findById(id);
+
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Check if the user is authorized (e.g., admin)
+        const userId = req.user.userId;  // Access the decoded userId from the token
+        const user = await User.findById(userId);
+
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ message: 'Only admins can update posts' });
+        }
+
+        // Update the post with the new data (only the fields provided will be updated)
+        if (title) post.title = title;
+        if (header) post.header = header;
+        if (location) post.location = location;
+        if (content) post.content = content;
+        if (price) post.price = price;
+        if (category) post.category = category;
+        if (images) post.images = images;
+        if (video) post.video = video;
+        if (tag) post.tag = tag;
+
+        // Save the updated post
+        await post.save();
+
+        // Respond with the updated post
+        res.status(200).json({
+            success: true,
+            message: "Post updated successfully",
+            data: post,
+        });
+    } catch (err) {
+        console.error('Error updating post:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 
 module.exports = router;

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema({
   message: { type: String, required: true },
-  type: { type: String, required: true, enum: ['info', 'warning', 'error', 'success'] }, // optional: enforce known types
+  type: { type: String, required: true }, // optional: enforce known types
   timestamp: { type: Date, default: Date.now },
 });
 

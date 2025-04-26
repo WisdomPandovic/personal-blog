@@ -8,6 +8,7 @@ const Post = require("../../models/post");
 const Product = require("../../models/product");
 const User = require("../../models/user");
 const Order = require("../../models/order");
+const Notification = require("../../models/notification");
 const Transaction = require("../../models/transaction");
 const sendConfirmationEmail = require("../../utils/emailService");
 
@@ -213,8 +214,8 @@ router.post("/products/payment", async (req, res) => {
       }
     }
 
-     // Save transaction data to the database
-     const transactionData = {
+    // Save transaction data to the database
+    const transactionData = {
       userId, // Ensure userId is converted to ObjectId
       reference: response.data.data.reference,
       amount: totalAmount,
@@ -229,6 +230,25 @@ router.post("/products/payment", async (req, res) => {
     const transaction = new Transaction(transactionData);
     await transaction.save();
     console.log("Transaction saved to database:", transaction);
+
+    // 🛎 Create an admin notification
+    try {
+      const user = await User.findById(userId); // Fetch user info
+
+      const userName = user?.fullName || user?.name || "A user"; // Adjust based on your User model fields
+
+      const notificationMessage = `${userName} just paid for ${cartItems.length} item(s).`; // 🛎 The message shown to admin
+
+      const newNotification = new Notification({
+        message: notificationMessage,
+        type: "payment", // You can use 'payment' or 'order'
+      });
+
+      await newNotification.save();
+      console.log('🔔 Admin notification created successfully');
+    } catch (notificationError) {
+      console.error('Error creating admin notification:', notificationError);
+    }
 
     const emailSubject = 'Order Confirmation - Camila Aguila';
 

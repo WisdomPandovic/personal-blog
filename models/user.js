@@ -25,13 +25,22 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  isAdmin: {
+  hasAdminAccess: {
     type: Boolean,
     default: false,
   },
+  // role: {
+  //   type: String,
+  //   enum: ['admin', 'user', 'editor', 'moderator', 'manager', 'support'],
+  //   default: 'user',
+  // },
   role: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'roles',
+  },
+  roleName: {
     type: String,
-    enum: ['admin', 'user'],
+    enum: ['admin', 'user', 'editor', 'moderator', 'manager', 'support'],
     default: 'user',
   },
   profileImage: {  // <-- NEW FIELD
@@ -74,6 +83,12 @@ const UserSchema = new mongoose.Schema({
   verificationTokenExpires: {
     type: Date,
   },
+  status: {
+    type: String,
+    enum: ['active', 'blocked'],
+    default: 'active',
+  },
+  // permissions: [String],
 });
 
 // Hash password before saving (using bcrypt with a reasonable salt rounds)

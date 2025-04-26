@@ -36,6 +36,7 @@ require('../routes/product')(router);
 require('../routes/productPayment')(router);
 require('../routes/transaction')(router);
 require('../routes/ai')(router);
+require('../routes/role')(router);
 console.log('Routes loaded');
 
 // Use the router

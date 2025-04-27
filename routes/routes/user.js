@@ -15,6 +15,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require("../../utils/emailService");
+const saveActivity = require('../../utils/saveActivity');
 
 const storage = multer.diskStorage({
     destination: (reg, file, cb) => {
@@ -67,111 +68,6 @@ router.get('/users/:id', async (req, res) => {
         res.status(500).json({ msg: "Server error", code: 500, error: err.message });
     }
 });
-
-// router.post("/users", async (req, res) => {
-//     try {
-//         const { username, email, phoneNumber, password, role } = req.body;
-
-//         // Email format validation
-//         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-//         if (!emailRegex.test(email)) {
-//             return res.status(400).json({ error: "Invalid email format." });
-//         }
-
-//         // Check if email is already used
-//         const existingUser = await User.findOne({ email: email.toLowerCase() });
-//         if (existingUser) {
-//             return res.status(400).json({ error: "Email is already registered." });
-//         }
-
-//         // Password validation
-//         const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
-//         if (!passwordRegex.test(password)) {
-//             return res.status(400).json({
-//                 error: "Password must be at least 8 characters long and contain at least one special character."
-//             });
-//         }
-
-//         const verificationToken = crypto.randomBytes(32).toString("hex");
-
-//         const user = new User({
-//             username,
-//             email: email.toLowerCase(),
-//             phoneNumber,
-//             password,
-//             role,
-//             isVerified: false,
-//             verificationToken
-//         });
-
-//         await user.save();
-
-//          // Send verification email
-//          const verificationLink = `${process.env.CLIENT_URL}/auth/verify-email?token=${verificationToken}`;
-//          const html = `
-//              <h3>Verify your email</h3>
-//              <p>Click the link below to verify your email:</p>
-//              <a href="${verificationLink}">${verificationLink}</a>
-//          `;
-
-//          await sendEmail(email, "Verify your email", html);
-
-//         // res.json(user);
-//         res.status(201).json({ msg: "User registered. Please check your email to verify your account." });
-//     } catch (err) {
-//         res.status(500).send(err.message);
-//     }
-// });
-
-// router.post('/admin/signup', authenticate, isAdmin,  async (req, res) => {
-//     try {
-//         const { username, email, password, phoneNumber } = req.body;
-
-//         // Check if email or username already exists
-//         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-//         if (existingUser) {
-//             return res.status(400).json({ msg: 'Email or Username already exists' });
-//         }
-
-//         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-//         if (!emailRegex.test(email)) {
-//             return res.status(400).json({ error: "Invalid email format." });
-//         }
-
-//         // Password validation
-//         const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
-//         if (!passwordRegex.test(password)) {
-//             return res.status(400).json({
-//                 error: "Password must be at least 8 characters long and contain at least one special character."
-//             });
-//         }
-
-//         const salt = await bcrypt.genSalt(10); // Adjust salt rounds as needed
-//         const hashedPassword = await bcrypt.hash(password, salt);
-
-//         const adminRole = await Role.findOne({ title: 'admin' });
-//         if (!adminRole) {
-//             return res.status(400).json({ msg: 'Admin role not found' });
-//         }
-
-//         // Create a new admin user
-//         const newUser = new User({
-//             username,
-//             email: email.toLowerCase(),
-//             password: hashedPassword,
-//             phoneNumber,
-//             role: adminRole._id,
-//             roleName: adminRole.title, // Set the role to 'admin'
-//         });
-
-//         // Save the new user
-//         await newUser.save();
-//         res.status(201).json({ msg: 'Admin user created successfully' });
-//     } catch (err) {
-//         console.error(err);
-//         res.status(500).json({ msg: 'Server error' });
-//     }
-// });
 
 router.post('/admin/signup', authenticate, async (req, res) => {
     try {
@@ -623,6 +519,15 @@ router.patch('/admin/:id/photo', postimage.single('photo'), async (req, res) => 
 
         user.profileImage = photoUrl;
         await user.save();
+
+         // ✅ Save the activity after successful profile image update
+         await saveActivity({
+            userId: user._id,
+            action: 'Updated profile photo',
+            // message: `User updated their profile photo to ${photoUrl}`,
+            message: 'User updated their profile photo',   // Add a descriptive message
+            metadata: { profileImage: photoUrl },
+          });
 
         res.json({ msg: 'Profile photo updated successfully', profileImage: photoUrl });
     } catch (err) {

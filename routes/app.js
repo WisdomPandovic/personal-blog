@@ -38,6 +38,7 @@ require('../routes/transaction')(router);
 require('../routes/ai')(router);
 require('../routes/role')(router);
 require('../routes/notification')(router);
+require('../routes/activityLog')(router);
 console.log('Routes loaded');
 
 // Use the router

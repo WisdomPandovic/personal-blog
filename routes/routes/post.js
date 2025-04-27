@@ -505,7 +505,7 @@ router.post("/post", async function (req, res) {
 router.get('/post/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user.userId;  // Access the decoded userId from the token
+		const userId = req.user._id;		// Access the decoded userId from the token
 
 		 // Validate ObjectId format before querying
 		 if (!mongoose.Types.ObjectId.isValid(id)) {

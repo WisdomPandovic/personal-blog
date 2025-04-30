@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const axios = require('axios');
 const router = express.Router();
 const authenticate = require('../../middleware/authenticate')
+const authorizeRoles = require('../../middleware/authorize')
 const isAdmin = require('../../middleware/admin');
 const Post = require("../../models/post");
 const Product = require("../../models/product");
@@ -235,7 +236,7 @@ router.post("/products/payment", async (req, res) => {
     try {
       const user = await User.findById(userId); // Fetch user info
 
-      const userName = user?.fullName || user?.name || "A user"; // Adjust based on your User model fields
+      const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user"; // Adjust based on your User model fields
 
       const notificationMessage = `${userName} just paid for ${cartItems.length} item(s).`; // 🛎 The message shown to admin
 
@@ -542,7 +543,7 @@ router.get("/payment/callback", async (req, res) => {
 //     }
 // });
 
-router.get('/orders', authenticate, isAdmin, async (req, res) => {
+router.get('/orders', authenticate, authorizeRoles('admin', 'manager', 'support', 'editor'), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1; // Default to page 1
     const limit = parseInt(req.query.limit) || 10; // Default to 10 orders per page

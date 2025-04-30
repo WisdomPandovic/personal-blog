@@ -5,7 +5,7 @@ const UAParser = require('ua-parser-js');
 const multer = require("multer");
 const bcrypt = require('bcryptjs');
 const authenticate = require('../../middleware/authenticate')
-// const authorizeRoles = require('../../middleware/authorize')
+const authorizeRoles = require('../../middleware/authorize')
 const isAdmin = require('../../middleware/admin');
 const Post = require("../../models/post");
 const Role = require('../../models/role');
@@ -496,47 +496,98 @@ router.delete("/user/:userId/address/:addressId", async (req, res) => {
 });
 
 // Upload Admin Profile Photo
+// router.patch('/admin/:id/photo', postimage.single('photo'), async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const user = await User.findById(id);
+
+//         if (!user) {
+//             return res.status(404).json({ msg: 'User not found' });
+//         }
+
+//         let photoUrl;
+
+//         if (req.file) {
+//             // If a file is uploaded
+//             photoUrl = `${req.protocol}://${req.get('host')}/postimage/${req.file.filename}`;
+//         } else if (req.body.profileImage) {
+//             // If a URL is sent
+//             photoUrl = req.body.profileImage;
+//         } else {
+//             return res.status(400).json({ msg: 'No photo uploaded or URL provided' });
+//         }
+
+//         user.profileImage = photoUrl;
+//         await user.save();
+
+//          // ✅ Save the activity after successful profile image update
+//          await saveActivity({
+//             userId: user._id,
+//             action: 'Updated profile photo',
+//             // message: `User updated their profile photo to ${photoUrl}`,
+//             message: 'User updated their profile photo',   // Add a descriptive message
+//             metadata: { profileImage: photoUrl, username: username },
+//           });
+
+//         res.json({ msg: 'Profile photo updated successfully', profileImage: photoUrl });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ msg: 'Server error', error: err.message });
+//     }
+// });
+
 router.patch('/admin/:id/photo', postimage.single('photo'), async (req, res) => {
     try {
         const { id } = req.params;
+        const { username } = req.body; // Extract username from request body
+
+        // Find the user by ID
         const user = await User.findById(id);
 
         if (!user) {
             return res.status(404).json({ msg: 'User not found' });
         }
 
+        // Determine the photo URL (either from file upload or direct URL)
         let photoUrl;
 
         if (req.file) {
-            // If a file is uploaded
+            // File uploaded via multer
             photoUrl = `${req.protocol}://${req.get('host')}/postimage/${req.file.filename}`;
         } else if (req.body.profileImage) {
-            // If a URL is sent
+            // URL provided directly
             photoUrl = req.body.profileImage;
         } else {
             return res.status(400).json({ msg: 'No photo uploaded or URL provided' });
         }
 
+        // Update the user's profile image and username (if provided)
         user.profileImage = photoUrl;
+        if (username) {
+            user.username = username; // Update username only if provided
+        }
         await user.save();
 
-         // ✅ Save the activity after successful profile image update
-         await saveActivity({
+        // Save the activity log
+        await saveActivity({
             userId: user._id,
             action: 'Updated profile photo',
-            // message: `User updated their profile photo to ${photoUrl}`,
-            message: 'User updated their profile photo',   // Add a descriptive message
-            metadata: { profileImage: photoUrl },
-          });
+            message: `${user.username || username} updated their profile photo`,
+            metadata: {
+                profileImage: photoUrl,
+                username: user.username || username,
+            },
+        });
 
+        // Respond with success
         res.json({ msg: 'Profile photo updated successfully', profileImage: photoUrl });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ msg: 'Server error', error: err.message });
+        console.error("Error updating profile photo:", err.message);
+        res.status(500).json({ msg: "Server error", error: err.message });
     }
 });
 
-router.get('/admin-profile', authenticate, isAdmin, async (req, res) => {
+router.get('/admin-profile', authenticate, authorizeRoles('admin', 'manager', 'moderator', 'support', 'editor'), async (req, res) => {
     try {
         const user = await User.findById(req.user._id); // Use userId from the token
         console.log('Decoded JWT payload:', req.user);
@@ -723,8 +774,6 @@ router.put('/admin/block/:id', authenticate, isAdmin, async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
     }
 });
-
-
 
 // async function testHashingAndComparison() {
 //   const password = 'wisdompandovic@';

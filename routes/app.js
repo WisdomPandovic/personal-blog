@@ -39,6 +39,8 @@ require('../routes/ai')(router);
 require('../routes/role')(router);
 require('../routes/notification')(router);
 require('../routes/activityLog')(router);
+require('../routes/groupChat')(router);
+require('../routes/personalChatMessage')(router);
 console.log('Routes loaded');
 
 // Use the router

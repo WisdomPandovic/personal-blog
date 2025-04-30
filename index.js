@@ -119,6 +119,9 @@ const MongoStore = require('connect-mongo');
 const http = require('http');
 const { Server } = require('socket.io');
 
+const GroupChatMessage = require('./models/groupChatMessage');
+const User = require('./models/user');
+
 // Import routes
 const userRoutes = require('./routes/routes/user'); 
 const postRoutes = require('./routes/routes/post'); 
@@ -134,13 +137,16 @@ const aiRoutes = require('./routes/routes/ai');
 const rolesRoutes = require('./routes/routes/roles');
 const notificationRoutes = require('./routes/routes/notification');
 const activityLogRoutes = require('./routes/routes/activityLog');
+const groupChatRoutes = require('./routes/routes/groupChat');
+const personalChatRoutes = require('./routes/routes/personalChatMessage');
 
 const app = express();
 const server = http.createServer(app); // Use http server for both Express & Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
+    origin: 'https://chilla-sweella-personal-blog.vercel.app', // match the frontend origin
+    methods: ['GET', 'POST'],
+    credentials: true
   },
 });
 
@@ -197,6 +203,8 @@ app.use('/api', aiRoutes);
 app.use('/api', rolesRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api', activityLogRoutes)
+app.use('/api', groupChatRoutes)
+app.use('/api', personalChatRoutes )
 
 // 🧠 Live streaming logic
 let liveStream = {
@@ -249,6 +257,53 @@ io.on("connection", (socket) => {
     liveStream.adminSocketId = null;
     io.emit("live-ended");
   });
+
+// Inside io.on("connection", socket) { ... }
+
+// Listen for new group chat messages
+socket.on("admin-group-chat-send", async (messageContent) => {
+  try {
+    const userId = socket.handshake.auth.userId; // Get userId passed from frontend
+
+    if (!userId) {
+      console.error("Missing userId on socket.auth");
+      return;
+    }
+
+    const user = await User.findById(userId).select('username roleName');
+
+    if (!user) {
+      console.error("User not found");
+      return;
+    }
+
+    const allowedRoles = ['admin', 'editor', 'moderator', 'manager', 'support'];
+
+    if (!allowedRoles.includes(user.roleName)) {
+      console.error("Unauthorized role:", user.roleName);
+      return;
+    }
+
+    const newMessage = new GroupChatMessage({
+      sender: user._id,
+      content: messageContent,
+    });
+
+    await newMessage.save();
+
+    // Broadcast the message to all users, including the sender
+    io.emit("admin-group-chat-receive", {
+      sender: {
+        username: user.username,
+        role: user.role,
+      },
+      content: messageContent,
+      timestamp: newMessage.timestamp,
+    });
+  } catch (err) {
+    console.error("Error handling admin group chat:", err);
+  }
+});
 
   // On disconnect
   socket.on("disconnect", () => {

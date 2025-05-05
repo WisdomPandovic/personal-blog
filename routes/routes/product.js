@@ -360,7 +360,35 @@ router.patch('/product/:id', isAdmin, async (req, res) => {
 	}
 });
 
-
-
+// DELETE Product
+router.delete("/product/:id", isAdmin, async function (req, res) {
+	try {
+	  const productId = req.params.id;
+  
+	  // Validate product ID
+	  if (!ObjectId.isValid(productId)) {
+		return res.status(400).json({ msg: "Invalid product ID" });
+	  }
+  
+	  // Find product
+	  const product = await Product.findById(productId);
+	  if (!product) {
+		return res.status(404).json({ msg: "Product not found" });
+	  }
+  
+	  // Delete product
+	  await Product.findByIdAndDelete(productId);
+  
+	  // Remove product from its category
+	  await Category.findByIdAndUpdate(product.category, {
+		$pull: { products: product._id },
+	  });
+  
+	  res.status(200).json({ success: true, message: "Product deleted successfully." });
+	} catch (err) {
+	  console.error("Error deleting product:", err);
+	  res.status(500).json({ success: false, message: err.message });
+	}
+  });
 
 module.exports = router;

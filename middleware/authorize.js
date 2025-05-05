@@ -1,4 +1,4 @@
-const VALID_ROLES = ['admin', 'user', 'editor', 'moderator', 'manager', 'support'];
+const VALID_ROLES = ['admin', 'user', 'editor', 'moderator', 'manager', 'support', 'guest'];
 
 const authorizeRoles = (...allowedRoles) => {
   // Filter allowedRoles to only include valid ones
@@ -18,4 +18,3 @@ const authorizeRoles = (...allowedRoles) => {
 };
 
 module.exports = authorizeRoles;
-

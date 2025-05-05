@@ -290,6 +290,7 @@ router.post('/admin/signin', async (req, res) => {
                 email: user.email,
                 profileImage: user.profileImage,
                 role: payload.role, // includes title + permissions
+                roleName: user.roleName,
             },
         });
     } catch (err) {
@@ -587,7 +588,7 @@ router.patch('/admin/:id/photo', postimage.single('photo'), async (req, res) => 
     }
 });
 
-router.get('/admin-profile', authenticate, authorizeRoles('admin', 'manager', 'moderator', 'support', 'editor'), async (req, res) => {
+router.get('/admin-profile', authenticate, authorizeRoles('admin', 'manager', 'moderator', 'support', 'editor', 'guest'), async (req, res) => {
     try {
         const user = await User.findById(req.user._id); // Use userId from the token
         console.log('Decoded JWT payload:', req.user);

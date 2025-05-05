@@ -40,7 +40,7 @@ const UserSchema = new mongoose.Schema({
   },
   roleName: {
     type: String,
-    enum: ['admin', 'user', 'editor', 'moderator', 'manager', 'support'],
+    enum: ['admin', 'user', 'editor', 'moderator', 'manager', 'support', 'guest'],
     default: 'user',
   },
   profileImage: {  // <-- NEW FIELD

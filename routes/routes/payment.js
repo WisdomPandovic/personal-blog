@@ -543,7 +543,7 @@ router.get("/payment/callback", async (req, res) => {
 //     }
 // });
 
-router.get('/orders', authenticate, authorizeRoles('admin', 'manager', 'support', 'editor'), async (req, res) => {
+router.get('/orders', authenticate, authorizeRoles('admin', 'manager', 'support', 'editor', 'guest'), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1; // Default to page 1
     const limit = parseInt(req.query.limit) || 10; // Default to 10 orders per page
@@ -866,116 +866,6 @@ router.get("/most-bought", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
-
-// router.get('/sales-by-country', async (req, res) => {
-//   try {
-//     // Step 1: Aggregate data to calculate total items sold per country
-//     const countryStats = await Transaction.aggregate([
-//       { $unwind: "$metadata.cartItems" }, // 🛠 Unwind cart items
-//       {
-//         $group: {
-//           _id: "$metadata.country", // 👈 Group by metadata.country
-//           totalItemsSold: {
-//             $sum: { $toInt: "$metadata.cartItems.quantity" } // Safely sum quantity
-//           },
-//           totalTransactions: { $sum: 1 }
-//         }
-//       },
-//       {
-//         $group: {
-//           _id: null, // Group all countries together
-//           totalGlobalItemsSold: { $sum: "$totalItemsSold" }, // Calculate global total
-//           countries: {
-//             $push: {
-//               country: { $ifNull: ["$_id", "Unknown"] }, // Handle null countries
-//               totalItemsSold: "$totalItemsSold",
-//               totalTransactions: "$totalTransactions"
-//             }
-//           }
-//         }
-//       },
-//       {
-//         $unwind: "$countries" // Unwind the array of countries
-//       },
-//       {
-//         $project: {
-//           _id: 0,
-//           country: "$countries.country",
-//           totalItemsSold: "$countries.totalItemsSold",
-//           totalTransactions: "$countries.totalTransactions",
-//           percentage: {
-//             $multiply: [
-//               { $divide: ["$countries.totalItemsSold", "$totalGlobalItemsSold"] }, // Calculate percentage
-//               100
-//             ]
-//           }
-//         }
-//       },
-//       { $sort: { percentage: -1 } }, // Sort by percentage in descending order
-//       { $limit: 5 } // Limit to top 5 countries
-//     ]);
-
-//     res.json(countryStats);
-//   } catch (err) {
-//     console.error('Error fetching sales by country:', err.message);
-//     res.status(500).send({ msg: "Server error" });
-//   }
-// });
-
-// router.get('/sales-by-country', async (req, res) => {
-//   try {
-//     // Step 1: Aggregate data to calculate total items sold per country
-//     const countryStats = await Transaction.aggregate([
-//       { $unwind: "$metadata.cartItems" }, // 🛠 Unwind cart items
-//       {
-//         $group: {
-//           _id: "$metadata.country", // 👈 Group by metadata.country (assumed to be ISO 3166-1 alpha-2 code)
-//           totalItemsSold: {
-//             $sum: { $toInt: "$metadata.cartItems.quantity" } // Safely sum quantity
-//           },
-//           totalTransactions: { $sum: 1 }
-//         }
-//       },
-//       {
-//         $group: {
-//           _id: null, // Group all countries together
-//           totalGlobalItemsSold: { $sum: "$totalItemsSold" }, // Calculate global total
-//           countries: {
-//             $push: {
-//               countryCode: { $ifNull: ["$_id", "Unknown"] }, // Use countryCode instead of country name
-//               totalItemsSold: "$totalItemsSold",
-//               totalTransactions: "$totalTransactions"
-//             }
-//           }
-//         }
-//       },
-//       {
-//         $unwind: "$countries" // Unwind the array of countries
-//       },
-//       {
-//         $project: {
-//           _id: 0,
-//           countryCode: "$countries.countryCode", // Include countryCode in the output
-//           totalItemsSold: "$countries.totalItemsSold",
-//           totalTransactions: "$countries.totalTransactions",
-//           percentage: {
-//             $multiply: [
-//               { $divide: ["$countries.totalItemsSold", "$totalGlobalItemsSold"] }, // Calculate percentage
-//               100
-//             ]
-//           }
-//         }
-//       },
-//       { $sort: { percentage: -1 } }, // Sort by percentage in descending order
-//       { $limit: 5 } // Limit to top 5 countries
-//     ]);
-
-//     res.json(countryStats);
-//   } catch (err) {
-//     console.error('Error fetching sales by country:', err.message);
-//     res.status(500).send({ msg: "Server error" });
-//   }
-// });
 
 router.get('/sales-by-country', async (req, res) => {
   try {

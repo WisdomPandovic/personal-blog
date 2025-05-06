@@ -249,6 +249,14 @@ router.post('/admin/signin', async (req, res) => {
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
 
+         // Log full user data for debugging
+    console.log("User found:", {
+        email: user.email,
+        roleName: user.roleName,
+        status: user.status,
+        hasAdminAccess: user.hasAdminAccess,
+      });
+
          // Check if the user is blocked
          if (user.status === 'blocked') {
             console.log("User is blocked.");

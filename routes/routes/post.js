@@ -41,7 +41,7 @@ router.get('/post', async function (req, res) {
 	}
 });
 
-router.put('/post/:id', isAdmin, async function (req, res) {
+router.put('/post/:id', authenticate, isAdmin, async function (req, res) {
 	try {
 		let { id } = req.params
 		let post = await Post.findById(id)
@@ -61,7 +61,7 @@ router.put('/post/:id', isAdmin, async function (req, res) {
 	}
 });
 
-router.delete('/post/:id', isAdmin, async function (req, res) {
+router.delete('/post/:id', authenticate, isAdmin, async function (req, res) {
 	try {
 		let { id } = req.params
 		let post = await Post.findOneAndDelete({ _id: id });

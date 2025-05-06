@@ -304,7 +304,7 @@ router.get('/product/category/:categoryId', async (req, res) => {
 // });
 
 
-router.patch('/product/:id', isAdmin, async (req, res) => {
+router.patch('/product/:id', authenticate, isAdmin, async (req, res) => {
 	try {
 		const { id } = req.params;
 		const updates = req.body;
@@ -361,7 +361,7 @@ router.patch('/product/:id', isAdmin, async (req, res) => {
 });
 
 // DELETE Product
-router.delete("/product/:id", isAdmin, async function (req, res) {
+router.delete("/product/:id", authenticate, isAdmin, async function (req, res) {
 	try {
 	  const productId = req.params.id;
   

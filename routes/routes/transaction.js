@@ -7,7 +7,7 @@ const Transaction = require("../../models/transaction");
 const User = require('../../models/user');
 
 // Get paginated transactions
-router.get("/transaction", authenticate, async (req, res) => {
+router.get("/transaction", authenticate, isAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;

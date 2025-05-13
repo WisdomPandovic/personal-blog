@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const User = require('../../models/user');
 const UAParser = require('ua-parser-js');
+const mongoose = require('mongoose');
 const multer = require("multer");
 const bcrypt = require('bcryptjs');
 const authenticate = require('../../middleware/authenticate')
@@ -9,6 +10,7 @@ const authorizeRoles = require('../../middleware/authorize')
 const isAdmin = require('../../middleware/admin');
 const Post = require("../../models/post");
 const Role = require('../../models/role');
+const Transaction = require('../../models/transaction'); 
 const PageView = require('../../models/PageView');
 const express = require('express');
 const router = express.Router();
@@ -46,8 +48,6 @@ router.get('/users', async (req, res) => {
     }
 });
 
-const mongoose = require('mongoose');
-
 router.get('/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -69,7 +69,7 @@ router.get('/users/:id', async (req, res) => {
     }
 });
 
-router.post('/admin/signup', authenticate, async (req, res) => {
+router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
     try {
         const { username, email, password, phoneNumber, roleTitle } = req.body;
 
@@ -781,6 +781,33 @@ router.put('/admin/block/:id', authenticate, isAdmin, async (req, res) => {
     } catch (err) {
         console.error('Error updating user status:', err);
         res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+});
+
+router.get('/user/username/:username', async function (req, res) {
+    try {
+        const { username } = req.params;
+
+        if (!username) {
+            return res.status(400).json({ message: "Username is required." });
+        }
+
+        const user = await User.findOne({ username })
+            .populate('role')         // populate role info (assuming Role model)
+            .populate('posts')        // populate user's created posts
+            .populate('paidPosts')    // populate user's paid posts
+            .select('-password -verificationToken -verificationTokenExpires'); // exclude sensitive fields
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const transactions = await Transaction.find({ userId: user._id }).sort({ createdAt: -1 });
+
+        res.status(200).json({ ...user.toObject(), transactions });
+    } catch (err) {
+        console.error('Error fetching user:', err);
+        res.status(500).json({ message: "Internal server error." });
     }
 });
 

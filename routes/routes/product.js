@@ -82,7 +82,7 @@ router.post("/product", async function (req, res) {
 	try {
 		console.log("Received request body:", req.body);
 
-		const { title, size, info, price, category, user, images, color, stock = 0 } = req.body;
+		const { title, size, info, price, category, brand, user, images, color, stock = 0 } = req.body;
 
 		// Ensure all required fields are provided
 		if (!title) {
@@ -152,6 +152,7 @@ router.post("/product", async function (req, res) {
 			color,
 			price,
 			category,
+			brand,
 			user,
 			info,
 			size,
@@ -390,5 +391,61 @@ router.delete("/product/:id", authenticate, isAdmin, async function (req, res) {
 	  res.status(500).json({ success: false, message: err.message });
 	}
   });
+
+  router.patch('/product/title/:title', authenticate, isAdmin, async (req, res) => {
+	try {
+	  const { title } = req.params;
+	  const updates = req.body;
+  
+	  const product = await Product.findOne({ title });
+	  if (!product) {
+		return res.status(404).json({ message: "Product not found." });
+	  }
+  
+	  const updateData = { ...updates };
+  
+	  // If 'color' array is being updated, recalculate total stock
+	  if (Array.isArray(updates.color)) {
+		let totalStock = 0;
+  
+		for (const variant of updates.color) {
+		  if (
+			!variant.color ||
+			typeof variant.stock !== "number" ||
+			variant.stock < 0
+		  ) {
+			return res.status(400).json({
+			  message:
+				"Each color must have a valid 'color' and non-negative 'stock'.",
+			});
+		  }
+		  totalStock += variant.stock;
+		}
+  
+		// Set status based on total stock (unless status explicitly provided)
+		if (!updates.status) {
+		  updateData.status = totalStock > 0 ? "available" : "out_of_stock";
+		}
+  
+		updateData.stock = totalStock;
+	  }
+  
+	  const updatedProduct = await Product.findOneAndUpdate(
+		{ title },
+		updateData,
+		{ new: true }
+	  );
+  
+	  res.status(200).json({
+		success: true,
+		message: "Product updated by title",
+		data: updatedProduct,
+	  });
+	} catch (err) {
+	  console.error(err);
+	  res.status(500).json({ message: err.message });
+	}
+  });
+  
 
 module.exports = router;

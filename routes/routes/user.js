@@ -71,7 +71,7 @@ router.get('/users/:id', async (req, res) => {
 
 router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
     try {
-        const { username, email, password, phoneNumber, roleTitle } = req.body;
+        const { firstName, lastName, username, email, password, phoneNumber, roleTitle } = req.body;
 
         // Check if email or username already exists
         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -105,6 +105,8 @@ router.post('/admin/signup', authenticate, isAdmin, async (req, res) => {
 
         // Create a new user with the selected role
         const newUser = new User({
+            firstName,
+            lastName,
             username,
             email: email.toLowerCase(),
             password: hashedPassword,
@@ -334,7 +336,7 @@ router.get('/verify-email', async (req, res) => {
 
 router.post("/users", async (req, res) => {
     try {
-        const { username, email, phoneNumber, password, role } = req.body;
+        const { firstName, lastName, username, email, phoneNumber, password, role } = req.body;
 
         // Email format validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -375,6 +377,8 @@ router.post("/users", async (req, res) => {
 
         // Create and save the new user
         const user = new User({
+            firstName,
+            lastName,
             username,
             email: email.toLowerCase(),
             phoneNumber,
@@ -810,6 +814,101 @@ router.get('/user/username/:username', async function (req, res) {
         res.status(500).json({ message: "Internal server error." });
     }
 });
+
+router.post('/create/user', authenticate, isAdmin, async (req, res) => {
+    try {
+        const { firstName, lastName, username, email, password, phoneNumber, roleTitle, savedAddresses } = req.body;
+
+        // Check if email or username already exists
+        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+        if (existingUser) {
+            return res.status(400).json({ msg: 'Email or Username already exists' });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: "Invalid email format." });
+        }
+
+        // Validate password format
+        const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                error: "Password must be at least 8 characters long and contain at least one special character."
+            });
+        }
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Find the role based on the title (e.g., 'admin')
+        const role = await Role.findOne({ title: roleTitle });
+        if (!role) {
+            return res.status(400).json({ msg: 'Role not found' });
+        }
+
+        // Create a new user with the selected role
+        const newUser = new User({
+            firstName,
+            lastName,
+            username,
+            email: email.toLowerCase(),
+            password: hashedPassword,
+            phoneNumber,
+            role: role._id,  // Reference to the Role
+            roleName: role.title, // Set the roleName based on the role's title
+            hasAdminAccess: true,
+            savedAddresses: savedAddresses || [],
+        });
+
+        // Save the new user
+        await newUser.save();
+        res.status(201).json({ msg: 'User created successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+// POST /admin/users/bulk-delete
+router.post('/users/bulk-delete', authenticate, isAdmin, async (req, res) => {
+    try {
+      const { ids } = req.body;
+  
+      // Validate input
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ 
+          error: 'Invalid or empty user IDs array' 
+        });
+      }
+  
+      // Validate all IDs are valid MongoDB ObjectIds
+      const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+      
+      if (validIds.length === 0) {
+        return res.status(400).json({ 
+          error: 'No valid user IDs provided' 
+        });
+      }
+  
+      // Delete users and related records
+      const result = await User.deleteMany({ _id: { $in: validIds } });
+      
+      res.status(200).json({ 
+        message: `${result.deletedCount} user(s) deleted successfully`,
+        deletedCount: result.deletedCount
+      });
+  
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete users',
+        details: error.message 
+      });
+    }
+  });
 
 // async function testHashingAndComparison() {
 //   const password = 'wisdompandovic@';

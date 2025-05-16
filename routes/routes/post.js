@@ -447,7 +447,7 @@ router.post("/post", async function (req, res) {
 			return res.status(404).json({ msg: "User not found" });
 		}
 
-		if (foundUser.role !== "admin") {
+		if (foundUser.roleName !== "admin") {
 			return res.status(403).json({ msg: "Only admins can create posts" });
 		}
 

@@ -27,7 +27,7 @@ const OrderSchema = new mongoose.Schema({
   postalCode: { type: String }, 
   phoneNumber: { type: String, required: function() { return this.deliveryMethod === "delivery"; } }, 
   paymentReference: { type: String, required: true, unique: true },
-  status: { type: String, enum: ["pending", "paid", "processing", "shipped", "delivered", "canceled", "refund_requested", "store_credit_issued"], default: "pending" },
+  status: { type: String, enum: ["pending", "paid", "processing", "shipped", "delivered", "outForDelivery", "canceled", "refund_requested", "refunded", "disputed", "returned", "store_credit_issued"], default: "pending" },
   createdAt: { type: Date, default: Date.now },
 });
 

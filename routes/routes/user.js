@@ -39,14 +39,63 @@ router.get('/', (req, res) => {
     res.json({ msg: "This is my user index route" });
 });
 
+// router.get('/users', async (req, res) => {
+//     try {
+//         let users = await User.find().lean();
+//         res.json(users);
+//     } catch (err) {
+//         res.status(500).send(err.message);
+//     }
+// });
+
 router.get('/users', async (req, res) => {
     try {
-        let users = await User.find().lean();
-        res.json(users);
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+  
+      const search = req.query.search?.toString().trim() || '';
+      const role = req.query.role?.toString().trim();
+      const sortBy = req.query.sortBy?.toString() || 'createdAt';
+      const order = req.query.order === 'asc' ? 1 : -1;
+  
+      const filter = {};
+  
+      // 🔍 Search by name or email (case-insensitive)
+      if (search) {
+        filter.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ];
+      }
+  
+      // 🔒 Filter by role if specified
+      if (role) {
+        filter.roleName = role;
+      }
+  
+      const [users, total] = await Promise.all([
+        User.find(filter)
+          .sort({ [sortBy]: order })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        User.countDocuments(filter)
+      ]);
+  
+      const totalPages = Math.ceil(total / limit);
+  
+      res.json({
+        users,
+        total,
+        page,
+        totalPages
+      });
     } catch (err) {
-        res.status(500).send(err.message);
+      console.error('Error fetching users:', err);
+      res.status(500).json({ error: err.message });
     }
-});
+  });   
 
 router.get('/users/:id', async (req, res) => {
     try {

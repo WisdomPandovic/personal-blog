@@ -926,14 +926,13 @@ router.post('/request-password-reset', async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
 
     const token = crypto.randomBytes(32).toString('hex');
-    const expires = Date.now() + 1000 * 60 * 60; // 1 hour
 
     // ✅ Log before saving
     console.log("🔑 Generated token:", token);
-    console.log("🕒 Expires:", new Date(expires).toISOString());
+    // console.log("🕒 Expires:", new Date(expires).toISOString());
 
     user.resetPasswordToken = token;
-    user.resetPasswordExpires = expires;
+    user.resetPasswordExpires = new Date(Date.now() + 1000 * 60 * 60); 
     await user.save();
 
     // ✅ Confirm it saved
@@ -961,33 +960,64 @@ router.post('/request-password-reset', async (req, res) => {
 
 
 
+// router.post('/reset-password/:token', async (req, res) => {
+//   const { token } = req.params;
+//   const { newPassword } = req.body;
+
+//   try {
+//     const user = await User.findOne({
+//       resetPasswordToken: token,
+//       resetPasswordExpires: { $gt: Date.now() } // still valid
+//     });
+
+//     if (!user)
+//       return res.status(400).json({ message: 'Invalid or expired token.' });
+
+//     // Update password
+//     const salt = await bcrypt.genSalt(10);
+//     user.password = await bcrypt.hash(newPassword, salt);
+//     user.resetPasswordToken = undefined;
+//     user.resetPasswordExpires = undefined;
+//     await user.save();
+
+//     res.status(200).json({ message: 'Password has been reset.' });
+//   } catch (err) {
+//     console.error("Error during password reset:", err);
+//     res.status(500).json({ message: 'Server error.' });
+//   }
+// });
+
 router.post('/reset-password/:token', async (req, res) => {
-  const { token } = req.params;
-  const { newPassword } = req.body;
-
-  try {
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() } // still valid
-    });
-
-    if (!user)
-      return res.status(400).json({ message: 'Invalid or expired token.' });
-
-    // Update password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    await user.save();
-
-    res.status(200).json({ message: 'Password has been reset.' });
-  } catch (err) {
-    console.error("Error during password reset:", err);
-    res.status(500).json({ message: 'Server error.' });
-  }
-});
-
+    const { token } = req.params;
+    const { password } = req.body;
+  
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required.' });
+    }
+  
+    try {
+      const user = await User.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: Date.now() }
+      });
+  
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid or expired token.' });
+      }
+  
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+  
+      res.status(200).json({ message: 'Password has been reset.' });
+    } catch (err) {
+      console.error('Error during password reset:', err);
+      res.status(500).json({ message: 'Server error.' });
+    }
+  });
+  
 
 // async function testHashingAndComparison() {
 //   const password = 'wisdompandovic@';

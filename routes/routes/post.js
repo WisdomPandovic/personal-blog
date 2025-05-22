@@ -41,6 +41,36 @@ router.get('/post', async function (req, res) {
 	}
 });
 
+router.get('/post', async function (req, res) {
+	try {
+		const page = parseInt(req.query.page) || 1;
+		const limit = parseInt(req.query.limit) || 10;
+
+		const skip = (page - 1) * limit;
+
+		// Get total post count
+		const totalPosts = await Post.countDocuments();
+
+		// Fetch paginated posts
+		const posts = await Post.find()
+			.populate("category")
+			.populate("user")
+			.skip(skip)
+			.limit(limit)
+			.lean();
+
+		res.json({
+			data: posts,
+			currentPage: page,
+			totalPages: Math.ceil(totalPosts / limit),
+			totalPosts,
+		});
+	} catch (err) {
+		res.status(500).send(err.message);
+	}
+});
+
+
 router.put('/post/:id', authenticate, isAdmin, async function (req, res) {
 	try {
 		let { id } = req.params

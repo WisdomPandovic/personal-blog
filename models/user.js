@@ -3,13 +3,13 @@ const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
   username: {
-    type: String,required: true, unique: true,
+    type: String, required: true, unique: true,
   },
   firstName: {
-    type: String,required: false, unique: true,
+    type: String, required: false, unique: true,
   },
   lastName: {
-    type: String,required: false, unique: true,
+    type: String, required: false, unique: true,
   },
   email: {
     type: String,
@@ -50,17 +50,18 @@ const UserSchema = new mongoose.Schema({
   savedAddresses: [
     {
       country: String,
+      city: String,
       countryCode: String,
       address: String,
       postalCode: String,
       phoneNumber: String,
       label: String, // e.g., 'Home', 'Work'
     }
-  ],  
+  ],
   deviceType: {
     type: String,
     enum: ["Desktop", "Mobile", "Tablet"],
-  },  
+  },
   lastLogin: {
     type: Date,
     default: null,
@@ -88,6 +89,9 @@ const UserSchema = new mongoose.Schema({
     enum: ['active', 'blocked'],
     default: 'active',
   },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
+
   // permissions: [String],
 });
 
@@ -102,5 +106,5 @@ const UserSchema = new mongoose.Schema({
 //   next();
 // });
 
-const User = mongoose.model("users",UserSchema)
- module.exports = User;
+const User = mongoose.model("users", UserSchema)
+module.exports = User;

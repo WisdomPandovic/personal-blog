@@ -566,21 +566,98 @@ router.get('/orders', authenticate, authorizeRoles('admin', 'manager', 'support'
   }
 });
 
+// router.get("/orders/:orderId", authenticate, isAdmin, async (req, res) => {
+//   const { orderId } = req.params;
+
+//   try {
+//     const order = await Order.findById(orderId).populate('userId', 'username profileImage');
+//     if (!order) {
+//       return res.status(404).json({ error: "Order not found" });
+//     }
+
+//      // Count previous orders by this user (excluding current order)
+//      let previousOrdersCount = 0;
+//      let userId = order.userId?._id || order.userId;
+
+//      if (userId) {
+//        previousOrdersCount = await Order.countDocuments({
+//          userId,
+//          _id: { $ne: order._id }
+//        });
+//      } else {
+//        console.warn(`⚠️ Order ${orderId} has no userId associated or user was deleted.`);
+//      }
+
+//     // Send order + count in the response
+//     res.status(200).json({ order, previousOrdersCount });
+//   } catch (err) {
+//     console.error("Error fetching order:", err);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+// router.get("/orders/:orderId", authenticate, isAdmin, async (req, res) => {
+//   const { orderId } = req.params;
+
+//   try {
+//     const order = await Order.findById(orderId);
+//     if (!order) {
+//       return res.status(404).json({ error: "Order not found" });
+//     }
+
+//     res.status(200).json({ order });
+//   } catch (err) {
+//     console.error("Error fetching order:", err);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
 router.get("/orders/:orderId", authenticate, isAdmin, async (req, res) => {
   const { orderId } = req.params;
 
   try {
-    const order = await Order.findById(orderId);
+    // Get the order and populate userId with selected fields
+    const order = await Order.findById(orderId).populate('userId', 'username profileImage');
+
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    res.status(200).json({ order });
+    let previousOrdersCount = 0;
+    let userInfo = null;
+
+    // If user info is available (i.e., populate worked)
+    if (order.userId && order.userId._id) {
+      userInfo = {
+        username: order.userId.username,
+        profileImage: order.userId.profileImage,
+      };
+
+      previousOrdersCount = await Order.countDocuments({
+        userId: order.userId._id,
+        _id: { $ne: order._id }
+      });
+    } else if (order.userId) {
+      // Fallback: order.userId exists but wasn't populated (e.g. user was deleted)
+      previousOrdersCount = await Order.countDocuments({
+        userId: order.userId,
+        _id: { $ne: order._id }
+      });
+    } else {
+      console.warn(`⚠️ Order ${orderId} has no userId associated.`);
+    }
+
+    res.status(200).json({
+      order,
+      user: userInfo,
+      previousOrdersCount,
+    });
   } catch (err) {
     console.error("Error fetching order:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 router.get("/order/:orderId", async (req, res) => {
   const { orderId } = req.params;
@@ -788,6 +865,46 @@ router.post('/process-return', async (req, res) => {
 });
 
 // Update order status (Admin only)
+// router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
+//   const { orderId } = req.params;
+//   const { status } = req.body;
+
+//   const validStatuses = [
+//     "pending",
+//     "paid",
+//     "processing",
+//     "shipped",
+//     "delivered",
+//     "canceled",
+//     "refund_requested",
+//     "refunded",
+//     "store_credit_issued",
+//     "outForDelivery",
+//     "disputed",
+//     "returned",
+//   ];
+//   if (!validStatuses.includes(status)) {
+//     return res.status(400).json({ message: "Invalid status value." });
+//   }
+
+//   try {
+//     const updatedOrder = await Order.findByIdAndUpdate(
+//       orderId,
+//       { status },
+//       { new: true }
+//     );
+
+//     if (!updatedOrder) {
+//       return res.status(404).json({ message: "Order not found." });
+//     }
+
+//     res.status(200).json({ message: "Order status updated.", order: updatedOrder });
+//   } catch (error) {
+//     console.error("Error updating order status:", error);
+//     res.status(500).json({ message: "Server error." });
+//   }
+// });
+
 router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
   const { orderId } = req.params;
   const { status } = req.body;
@@ -800,7 +917,11 @@ router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
     "delivered",
     "canceled",
     "refund_requested",
+    "refunded",
     "store_credit_issued",
+    "outForDelivery",
+    "disputed",
+    "returned",
   ];
 
   if (!validStatuses.includes(status)) {
@@ -812,18 +933,82 @@ router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
       orderId,
       { status },
       { new: true }
-    );
+    ).populate("userId"); // Ensure user is populated
 
     if (!updatedOrder) {
       return res.status(404).json({ message: "Order not found." });
     }
 
+    // 🛎 Create admin notification based on status
+    try {
+      const user = updatedOrder.user;
+      const userName =
+        user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
+
+      const notificationMessage = `Order ${updatedOrder._id} status changed to '${status}' by admin. (${userName})`;
+
+      const newNotification = new Notification({
+        message: notificationMessage,
+        type: "order", // can use different types per status if needed
+      });
+
+      await newNotification.save();
+      console.log("🔔 Admin notification created successfully");
+    } catch (notificationError) {
+      console.error("Error creating admin notification:", notificationError);
+    }
+
+    const email = updatedOrder.userId?.email || updatedOrder.email;
+
+    const emailSubject = 'Order Status Change- Camila Aguila';
+    const emailHtml = `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 40px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+        <h2 style="color: #222;">Order Status Update</h2>
+        <p style="font-size: 16px; color: #555;">
+          Hello, 
+        </p>
+        <p style="font-size: 16px; color: #555;">
+          We're writing to let you know that the status of your order <strong style="color: #000;">#${updatedOrder._id}</strong> has been updated to:
+        </p>
+        <p style="font-size: 18px; color: #007bff; font-weight: bold; margin-top: 10px; margin-bottom: 20px;">
+          ${status.charAt(0).toUpperCase() + status.slice(1)}
+        </p>
+        <p style="font-size: 16px; color: #555;">
+          You can log into your account to view more details or track your order.
+        </p>
+        <div style="margin: 30px 0;">
+          <a href="https://yourdomain.com/account/orders" style="display: inline-block; background-color: #007bff; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            View My Order
+          </a>
+        </div>
+        <p style="font-size: 16px; color: #555;">
+          Thank you for shopping with <strong>Camila Aguila</strong>!
+        </p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+        <p style="font-size: 13px; color: #999; text-align: center;">
+          This is an automated message, please do not reply directly to this email.
+        </p>
+      </div>
+    </div>
+  `;
+  
+    try {
+      await sendConfirmationEmail(email, emailSubject, emailHtml);
+      console.log('Confirmation email sent successfully');
+    } catch (error) {
+      console.error('Error sending confirmation email:', error);
+    }
+    
+
     res.status(200).json({ message: "Order status updated.", order: updatedOrder });
+
   } catch (error) {
     console.error("Error updating order status:", error);
     res.status(500).json({ message: "Server error." });
   }
 });
+
 
 router.get("/most-bought", async (req, res) => {
   try {

@@ -910,6 +910,85 @@ router.post('/users/bulk-delete', authenticate, isAdmin, async (req, res) => {
     }
   });
 
+// routes/auth.js or routes/password.js
+// const express = require('express');
+// const crypto = require('crypto');
+// const User = require('../models/User');
+// const sendEmail = require('../utils/sendEmail'); // Your nodemailer utility
+
+// const router = express.Router();
+
+router.post('/request-password-reset', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ message: 'User not found.' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = Date.now() + 1000 * 60 * 60; // 1 hour
+
+    // ✅ Log before saving
+    console.log("🔑 Generated token:", token);
+    console.log("🕒 Expires:", new Date(expires).toISOString());
+
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = expires;
+    await user.save();
+
+    // ✅ Confirm it saved
+    console.log("💾 Token saved to DB.");
+    // const resetUrl = `http://localhost:3000/auth/reset-password/${token}`;
+    const resetUrl = `https://chilla-sweella-personal-blog.vercel.app/auth/reset-password/${token}`;
+    console.log('🔗 Reset URL:', resetUrl);
+
+    const html = `
+      <div style="font-family: Arial; padding: 20px;">
+        <h2>Password Reset Request</h2>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}" style="color: blue;">Reset Password</a>
+        <p>If you didn't request this, please ignore this email.</p>
+      </div>
+    `;
+
+    await sendEmail(user.email, 'Password Reset', html);
+    res.status(200).json({ message: 'Reset email sent.' });
+  } catch (err) {
+    console.error('❌ Error during password reset request:', err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+
+
+router.post('/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
+
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() } // still valid
+    });
+
+    if (!user)
+      return res.status(400).json({ message: 'Invalid or expired token.' });
+
+    // Update password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: 'Password has been reset.' });
+  } catch (err) {
+    console.error("Error during password reset:", err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+
 // async function testHashingAndComparison() {
 //   const password = 'wisdompandovic@';
 

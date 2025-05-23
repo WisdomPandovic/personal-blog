@@ -139,12 +139,13 @@ const notificationRoutes = require('./routes/routes/notification');
 const activityLogRoutes = require('./routes/routes/activityLog');
 const groupChatRoutes = require('./routes/routes/groupChat');
 const personalChatRoutes = require('./routes/routes/personalChatMessage');
+const eventRoutes = require('./routes/routes/event');
 
 const app = express();
 const server = http.createServer(app); // Use http server for both Express & Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: 'https://chilla-sweella-personal-blog.vercel.app', // match the frontend origin
+    origin: 'http://localhost:3000', // match the frontend origin
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -202,9 +203,10 @@ app.use('/api', transactionRoutes);
 app.use('/api', aiRoutes);
 app.use('/api', rolesRoutes);
 app.use('/api', notificationRoutes);
-app.use('/api', activityLogRoutes)
-app.use('/api', groupChatRoutes)
-app.use('/api', personalChatRoutes )
+app.use('/api', activityLogRoutes);
+app.use('/api', groupChatRoutes);
+app.use('/api', personalChatRoutes );
+app.use('/api', eventRoutes );
 
 // 🧠 Live streaming logic
 let liveStream = {

@@ -19,13 +19,14 @@ router.get("/events", authenticate, async (req, res) => {
   
   // Create an event
   router.post("/events", authenticate, isAdmin, async (req, res) => {
-    const { title, description, start, end, isPublic } = req.body;
+    const { title, description, start, end, isPublic, color } = req.body;
     const event = await Event.create({
       title,
       description,
       start,
       end,
       isPublic,
+      color,  
       createdBy: req.user._id
     });
     res.status(201).json(event);
@@ -34,7 +35,7 @@ router.get("/events", authenticate, async (req, res) => {
   // PATCH /events/:id — update an event
 router.patch('/events/:id', authenticate, async (req, res) => {
     const { id } = req.params;
-    const { title, description, start, end, isPublic } = req.body;
+    const { title, description, start, end, isPublic, color } = req.body;
   
     try {
       // 1. Find the event
@@ -47,6 +48,8 @@ router.patch('/events/:id', authenticate, async (req, res) => {
       if (event.createdBy.toString() !== req.user._id.toString()) {
         return res.status(403).json({ message: 'You do not have permission to edit this event.' });
       }
+
+      if (color !== undefined) event.color = color; 
   
       // 3. Apply updates
       if (title !== undefined)       event.title = title;

@@ -140,6 +140,7 @@ const activityLogRoutes = require('./routes/routes/activityLog');
 const groupChatRoutes = require('./routes/routes/groupChat');
 const personalChatRoutes = require('./routes/routes/personalChatMessage');
 const eventRoutes = require('./routes/routes/event');
+const reviewRoutes = require('./routes/routes/review');
 
 const app = express();
 const server = http.createServer(app); // Use http server for both Express & Socket.IO
@@ -207,6 +208,7 @@ app.use('/api', activityLogRoutes);
 app.use('/api', groupChatRoutes);
 app.use('/api', personalChatRoutes );
 app.use('/api', eventRoutes );
+app.use('/api', reviewRoutes );
 
 // 🧠 Live streaming logic
 let liveStream = {

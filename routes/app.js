@@ -42,6 +42,7 @@ require('../routes/activityLog')(router);
 require('../routes/groupChat')(router);
 require('../routes/personalChatMessage')(router);
 require('../routes/event')(router);
+require('../routes/review')(router);
 console.log('Routes loaded');
 
 // Use the router

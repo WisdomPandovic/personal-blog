@@ -531,62 +531,62 @@ router.post("/post", async function (req, res) {
 	}
 });
 
-router.get('/post/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-		const userId = req.user._id;		// Access the decoded userId from the token
+// router.get('/post/:id', authenticate, async (req, res) => {
+// 	try {
+// 		const { id } = req.params;
+// 		const userId = req.user._id;		// Access the decoded userId from the token
 
-		 // Validate ObjectId format before querying
-		 if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: 'Invalid Post ID format' });
-        }
+// 		// Validate ObjectId format before querying
+// 		if (!mongoose.Types.ObjectId.isValid(id)) {
+// 			return res.status(400).json({ message: 'Invalid Post ID format' });
+// 		}
 
-        if (!id) {
-            return res.status(400).json({ message: 'Post ID is required' });
-        }
+// 		if (!id) {
+// 			return res.status(400).json({ message: 'Post ID is required' });
+// 		}
 
-        // Fetch the post by ID and populate its details (category, user, comments, etc.)
-        let post = await Post.findById(id)
-            .populate('category')      // Populate category information
-            .populate('user')          // Populate user information (author of the post)
-            .populate({
-                path: 'comments.comment_user', // Populate comment user's info
-                select: 'username',  // Only return the username of the comment author
-            })
-            .lean();  // Convert the mongoose document to plain JavaScript object
+// 		// Fetch the post by ID and populate its details (category, user, comments, etc.)
+// 		let post = await Post.findById(id)
+// 			.populate('category')      // Populate category information
+// 			.populate('user')          // Populate user information (author of the post)
+// 			.populate({
+// 				path: 'comments.comment_user', // Populate comment user's info
+// 				select: 'username',  // Only return the username of the comment author
+// 			})
+// 			.lean();  // Convert the mongoose document to plain JavaScript object
 
-        if (!post) {
-            return res.status(404).json({ message: 'Post not found' });
-        }
+// 		if (!post) {
+// 			return res.status(404).json({ message: 'Post not found' });
+// 		}
 
-		 // Fetch the user to check if they are an admin
-		 const user = await User.findById(userId);
-		 if (!user) {
-			 return res.status(403).json({ message: 'User not found' });
-		 }
- 
-		 // Allow admin to view the post without payment
-		 if (user.hasAdminAccess) {
-			return res.status(200).json(post); // Admin can view the post
-		}				
+// 		// Fetch the user to check if they are an admin
+// 		const user = await User.findById(userId);
+// 		if (!user) {
+// 			return res.status(403).json({ message: 'User not found' });
+// 		}
 
-        // Check if the post is paid
-        if (post.paid) {
-            // const user = await User.findById(userId);
-            const hasPaidForPost = user.paidPosts.some((paidPostId) => paidPostId.toString() === id.toString());
+// 		// Allow admin to view the post without payment
+// 		if (user.hasAdminAccess) {
+// 			return res.status(200).json(post); // Admin can view the post
+// 		}
 
-            if (!hasPaidForPost) {
-                return res.status(403).json({ message: 'You need to pay for this post first' });
-            }
-        }
+// 		// Check if the post is paid
+// 		if (post.paid) {
+// 			// const user = await User.findById(userId);
+// 			const hasPaidForPost = user.paidPosts.some((paidPostId) => paidPostId.toString() === id.toString());
 
-        res.status(200).json(post);  // Send the post data
+// 			if (!hasPaidForPost) {
+// 				return res.status(403).json({ message: 'You need to pay for this post first' });
+// 			}
+// 		}
 
-    } catch (err) {
-        console.error('Error fetching post:', err);
-        res.status(500).json({ error: 'Internal Server Error', message: err.message });
-    }
-});
+// 		res.status(200).json(post);  // Send the post data
+
+// 	} catch (err) {
+// 		console.error('Error fetching post:', err);
+// 		res.status(500).json({ error: 'Internal Server Error', message: err.message });
+// 	}
+// });
 
 router.patch('/post/:id', authenticate, isAdmin, async (req, res) => {
     try {
@@ -606,12 +606,12 @@ router.patch('/post/:id', authenticate, isAdmin, async (req, res) => {
         }
 
         // Check if the user is authorized (e.g., admin)
-        const userId = req.user.userId;  // Access the decoded userId from the token
-        const user = await User.findById(userId);
+		// const userId = req.user.userId;  // Access the decoded userId from the token
+		// const user = await User.findById(userId);
 
-        if (!user || user.role !== 'admin') {
-            return res.status(403).json({ message: 'Only admins can update posts' });
-        }
+		// if (!user || user.roleName !== 'admin') {
+		// 	return res.status(403).json({ message: 'Only admins can update posts' });
+		// }
 
         // Update the post with the new data (only the fields provided will be updated)
         if (title) post.title = title;
@@ -639,5 +639,25 @@ router.patch('/post/:id', authenticate, isAdmin, async (req, res) => {
     }
 });
 
+router.get('/post/:id', authenticate, isAdmin, async (req, res) => {
+	const { id } = req.params;
+  
+	if (!mongoose.Types.ObjectId.isValid(id)) {
+	  return res.status(400).json({ msg: "Invalid post ID", code: 400 });
+	}
+  
+	try {
+	  const post = await Post.findById(id);
+  
+	  if (!post) {
+		return res.status(404).json({ msg: "Post does not exist", code: 404 });
+	  }
+  
+	  res.status(200).json({ code: 200, data: post });
+	} catch (err) {
+	  console.error("Error fetching post:", err);
+	  res.status(500).json({ msg: "Server error", code: 500, error: err.message });
+	}
+  });
 
 module.exports = router;

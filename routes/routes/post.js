@@ -647,7 +647,7 @@ router.get('/post/:id', authenticate, isAdmin, async (req, res) => {
 	}
   
 	try {
-	  const post = await Post.findById(id);
+	  const post = await Post.findById(id).populate('category');
   
 	  if (!post) {
 		return res.status(404).json({ msg: "Post does not exist", code: 404 });

@@ -639,7 +639,7 @@ router.patch('/post/:id', authenticate, isAdmin, async (req, res) => {
     }
 });
 
-router.get('/post/:id', authenticate, isAdmin, async (req, res) => {
+router.get('/post/:id', authenticate, async (req, res) => {
 	const { id } = req.params;
   
 	if (!mongoose.Types.ObjectId.isValid(id)) {

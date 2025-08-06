@@ -12,7 +12,7 @@ const Order = require("../../models/order");
 const Notification = require("../../models/notification");
 const Transaction = require("../../models/transaction");
 const sendConfirmationEmail = require("../../utils/emailService");
-const { saveOrderFromPaymentData } = require("../helpers/paymentHandlers");
+const { saveOrderFromPaymentData } = require("../../helpers/paymentHandlers");
 
 // Load environment variables
 require('dotenv').config();

@@ -546,15 +546,28 @@ router.post("/payment/verify-mobile", async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-    // Verify payment from Paystack
+    // ✅ Verify payment from Paystack
     const response = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
       { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
     );
 
-    const paymentData = response.data.data;
+    let paymentData = response.data.data;
 
-    // Save order or subscription using helper
+    // 📌 Log full Paystack response for debugging
+    console.log("🔍 Raw Paystack Payment Data:", paymentData);
+
+    // ✅ Parse metadata if it's a string
+    if (typeof paymentData.metadata === "string") {
+      try {
+        paymentData.metadata = JSON.parse(paymentData.metadata);
+        console.log("✅ Parsed metadata:", paymentData.metadata);
+      } catch (err) {
+        console.error("❌ Failed to parse metadata string:", paymentData.metadata);
+      }
+    }
+
+    // ✅ Save order or subscription using helper
     const { type, orderId, postId } = await saveOrderFromPaymentData(paymentData);
 
     if (type === "product_purchase") {
@@ -574,6 +587,7 @@ router.post("/payment/verify-mobile", async (req, res) => {
     }
 
     res.status(400).json({ error: "Unknown payment type" });
+
   } catch (err) {
     console.error("Error verifying mobile payment:", err.response?.data || err.message);
     res.status(500).json({ error: "Could not verify payment" });

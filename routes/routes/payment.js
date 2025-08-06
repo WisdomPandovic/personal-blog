@@ -12,7 +12,7 @@ const Order = require("../../models/order");
 const Notification = require("../../models/notification");
 const Transaction = require("../../models/transaction");
 const sendConfirmationEmail = require("../../utils/emailService");
-// const { saveOrderFromPaymentData } = require("../helpers/paymentHandlers");
+const { saveOrderFromPaymentData } = require("../helpers/paymentHandlers");
 
 // Load environment variables
 require('dotenv').config();
@@ -532,6 +532,51 @@ router.get("/payment/callback", async (req, res) => {
   } catch (err) {
     console.error("Error verifying payment:", err);
     return res.redirect(`https://chilla-sweella-personal-blog.vercel.app/payment-failed`);
+  }
+});
+
+// Mobile verification endpoint
+router.post("/payment/verify-mobile", async (req, res) => {
+  const { reference } = req.body;
+
+  if (!reference) {
+    return res.status(400).json({ error: "Payment reference is required" });
+  }
+
+  try {
+    const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+    // Verify payment from Paystack
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+    );
+
+    const paymentData = response.data.data;
+
+    // Save order or subscription using helper
+    const { type, orderId, postId } = await saveOrderFromPaymentData(paymentData);
+
+    if (type === "product_purchase") {
+      return res.status(200).json({
+        success: true,
+        message: "Order placed successfully",
+        orderId,
+      });
+    }
+
+    if (type === "blog_subscription") {
+      return res.status(200).json({
+        success: true,
+        message: "Subscription activated successfully",
+        postId,
+      });
+    }
+
+    res.status(400).json({ error: "Unknown payment type" });
+  } catch (err) {
+    console.error("Error verifying mobile payment:", err.response?.data || err.message);
+    res.status(500).json({ error: "Could not verify payment" });
   }
 });
 

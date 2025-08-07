@@ -96,6 +96,12 @@ router.post("/products/payment", async (req, res) => {
     return res.status(400).json({ error: "Invalid payment data." });
   }
 
+  // ✅ Check for out-of-stock items
+  const hasOutOfStock = cartItems.some(item => item.stock <= 0);
+  if (hasOutOfStock) {
+    return res.status(400).json({ error: "One or more items are out of stock. Please update your cart." });
+  }
+  
   if (!deliveryMethod) {
     return res.status(400).json({ error: "Delivery method is required." });
   }
@@ -538,6 +544,7 @@ router.get("/payment/callback", async (req, res) => {
 // Mobile verification endpoint
 router.post("/payment/verify-mobile", async (req, res) => {
   const { reference } = req.body;
+  console.log("🔍 Incoming reference from mobile:", req.body.reference);
 
   if (!reference) {
     return res.status(400).json({ error: "Payment reference is required" });

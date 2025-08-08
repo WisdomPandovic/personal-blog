@@ -346,8 +346,8 @@ router.post("/products/payment", async (req, res) => {
     if (!item.preorder) {
       const colorVariant = product.color.find(c => c.color === item.selectedColor);
       if (!colorVariant || colorVariant.stock < item.quantity) {
-        return res.status(400).json({ 
-          error: `Not enough stock for ${item.title} (${item.selectedColor}).` 
+        return res.status(400).json({
+          error: `Not enough stock for ${item.title} (${item.selectedColor}).`
         });
       }
     }
@@ -458,9 +458,9 @@ router.post("/products/payment", async (req, res) => {
     }
 
     // ✅ Return only the URL — NO EMAIL, NO STOCK REDUCTION
-    res.status(200).json({ 
+    res.status(200).json({
       authorization_url: response.data.data.authorization_url,
-      reference: response.data.data.reference 
+      reference: response.data.data.reference
     });
 
   } catch (err) {
@@ -512,10 +512,10 @@ router.get('/payment/verify/:reference', async (req, res) => {
 
     // ✅ 2. Confirm payment succeeded
     if (data.status !== "success") {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Payment not successful", 
-        status: data.status 
+      return res.status(400).json({
+        success: false,
+        message: "Payment not successful",
+        status: data.status
       });
     }
 
@@ -625,17 +625,17 @@ router.get('/payment/verify/:reference', async (req, res) => {
         <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
         <p>Hello,</p>
         <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${isPreOrder
-          ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
-          : "Your order has been received and is now being processed."
-        }</p>
+        ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
+        : "Your order has been received and is now being processed."
+      }</p>
         <h3>📦 Order Details</h3>
         <p><strong>Order Reference:</strong> ${reference}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
         ${deliveryMethod === "delivery"
-          ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
-          : ""
-        }
+        ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
+        : ""
+      }
         <h3>🛍 Items Ordered</h3>
         <ul>
           ${cartItems.map(item => `
@@ -1076,9 +1076,14 @@ router.post("/payment/verify-mobile", async (req, res) => {
 
     // ✅ 3. Parse cartItems if it's a string
     let cartItems = metadata.cartItems;
+
+    // ✅ Debug: Log cartItems before checking if it's an array
+    console.log("🛒 Raw cartItems from metadata:", cartItems);
+
     if (typeof cartItems === "string") {
       try {
         cartItems = JSON.parse(cartItems);
+        console.log("🛒 Parsed cartItems:", cartItems);
       } catch (e) {
         console.error("Failed to parse cartItems:", cartItems);
         return res.status(400).json({ error: "Invalid cartItems format" });
@@ -1162,9 +1167,9 @@ router.post("/payment/verify-mobile", async (req, res) => {
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
         ${deliveryMethod === "delivery"
-          ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
-          : ""
-        }
+        ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
+        : ""
+      }
         <h3>🛍 Items Ordered</h3>
         <ul>
           ${cartItems.map(item => `
@@ -1593,14 +1598,14 @@ router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
       </div>
     </div>
   `;
-  
+
     try {
       await sendConfirmationEmail(email, emailSubject, emailHtml);
       console.log('Confirmation email sent successfully');
     } catch (error) {
       console.error('Error sending confirmation email:', error);
     }
-    
+
 
     res.status(200).json({ message: "Order status updated.", order: updatedOrder });
 

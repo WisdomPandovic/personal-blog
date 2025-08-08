@@ -551,7 +551,7 @@ router.get('/payment/verify/:reference', async (req, res) => {
       deliveryFee: metadata.deliveryFee || 0,
       totalAmount: data.amount / 100, // kobo to naira
       paymentReference: reference,
-      status: "confirmed",
+      status: "paid",
       paidAt: new Date(),
     });
 
@@ -970,7 +970,7 @@ router.post("/payment/verify-mobile", async (req, res) => {
         deliveryFee: metadata.deliveryFee || 0,
         totalAmount: data.amount / 100,
         paymentReference: reference,
-        status: "confirmed",
+        status: "paid",
       });
       await order.save();
     }

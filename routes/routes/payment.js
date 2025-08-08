@@ -854,62 +854,179 @@ router.get("/payment/callback", async (req, res) => {
 });
 
 // Mobile verification endpoint
+// router.post("/payment/verify-mobile", async (req, res) => {
+//   const { reference } = req.body;
+//   console.log("🔍 Incoming reference from mobile:", req.body.reference);
+
+//   if (!reference) {
+//     return res.status(400).json({ error: "Payment reference is required" });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     // ✅ Verify payment from Paystack
+//     const response = await axios.get(
+//       `https://api.paystack.co/transaction/verify/${reference}`,
+//       { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+//     );
+
+//     let paymentData = response.data.data;
+
+//     // 📌 Log full Paystack response for debugging
+//     console.log("🔍 Raw Paystack Payment Data:", paymentData);
+
+//     // ✅ Parse metadata if it's a string
+//     if (typeof paymentData.metadata === "string") {
+//       try {
+//         paymentData.metadata = JSON.parse(paymentData.metadata);
+//         console.log("✅ Parsed metadata:", paymentData.metadata);
+//       } catch (err) {
+//         console.error("❌ Failed to parse metadata string:", paymentData.metadata);
+//       }
+//     }
+
+//     // ✅ Save order or subscription using helper
+//     const { type, orderId, postId } = await saveOrderFromPaymentData(paymentData);
+
+//     if (type === "product_purchase") {
+//       return res.status(200).json({
+//         success: true,
+//         message: "Order placed successfully",
+//         orderId,
+//       });
+//     }
+
+//     if (type === "blog_subscription") {
+//       return res.status(200).json({
+//         success: true,
+//         message: "Subscription activated successfully",
+//         postId,
+//       });
+//     }
+
+//     res.status(400).json({ error: "Unknown payment type" });
+
+//   } catch (err) {
+//     console.error("Error verifying mobile payment:", err.response?.data || err.message);
+//     res.status(500).json({ error: "Could not verify payment" });
+//   }
+// });
+
+// POST /payment/verify-mobile
 router.post("/payment/verify-mobile", async (req, res) => {
   const { reference } = req.body;
-  console.log("🔍 Incoming reference from mobile:", req.body.reference);
 
   if (!reference) {
-    return res.status(400).json({ error: "Payment reference is required" });
+    return res.status(400).json({ error: "Reference is required" });
   }
 
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-    // ✅ Verify payment from Paystack
-    const response = await axios.get(
+    // ✅ 1. Verify with Paystack
+    const verifyRes = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
-      { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        },
+      }
     );
 
-    let paymentData = response.data.data;
+    const data = verifyRes.data.data;
 
-    // 📌 Log full Paystack response for debugging
-    console.log("🔍 Raw Paystack Payment Data:", paymentData);
+    if (data.status !== "success") {
+      return res.status(400).json({ error: "Payment not successful" });
+    }
 
-    // ✅ Parse metadata if it's a string
-    if (typeof paymentData.metadata === "string") {
-      try {
-        paymentData.metadata = JSON.parse(paymentData.metadata);
-        console.log("✅ Parsed metadata:", paymentData.metadata);
-      } catch (err) {
-        console.error("❌ Failed to parse metadata string:", paymentData.metadata);
+    // ✅ 2. Parse metadata
+    let metadata = data.metadata;
+    if (typeof metadata === "string") {
+      metadata = JSON.parse(metadata);
+    }
+
+    const { userId, email, cartItems, deliveryMethod } = metadata;
+
+    // ✅ 3. Update transaction status
+    await Transaction.findOneAndUpdate(
+      { reference },
+      { status: "success", paidAt: new Date() }
+    );
+
+    // ✅ 4. Create Order (if not exists)
+    const existingOrder = await Order.findOne({ paymentReference: reference });
+    if (!existingOrder) {
+      const order = new Order({
+        userId,
+        email,
+        cartItems,
+        deliveryMethod,
+        address: metadata.address,
+        phoneNumber: metadata.phoneNumber,
+        country: metadata.country,
+        countryCode: metadata.countryCode,
+        postalCode: metadata.postalCode,
+        deliveryFee: metadata.deliveryFee || 0,
+        totalAmount: data.amount / 100,
+        paymentReference: reference,
+        status: "confirmed",
+      });
+      await order.save();
+    }
+
+    // ✅ 5. Reduce stock (skip pre-order)
+    for (const item of cartItems) {
+      if (item.preorder) continue;
+
+      const product = await Product.findById(item.productId);
+      if (!product) continue;
+
+      const colorVariant = product.color.find(c => c.color === item.selectedColor);
+      if (colorVariant && colorVariant.stock >= item.quantity) {
+        colorVariant.stock -= item.quantity;
+        await product.save();
       }
     }
 
-    // ✅ Save order or subscription using helper
-    const { type, orderId, postId } = await saveOrderFromPaymentData(paymentData);
-
-    if (type === "product_purchase") {
-      return res.status(200).json({
-        success: true,
-        message: "Order placed successfully",
-        orderId,
+    // ✅ 6. Notify admin
+    try {
+      const user = await User.findById(userId);
+      const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
+      const notification = new Notification({
+        message: `${userName} just paid for ${cartItems.length} item(s).`,
+        type: "payment",
       });
+      await notification.save();
+      console.log('🔔 Admin notification created successfully');
+    } catch (err) {
+      console.error('Error creating admin notification:', err);
     }
 
-    if (type === "blog_subscription") {
-      return res.status(200).json({
-        success: true,
-        message: "Subscription activated successfully",
-        postId,
-      });
+    // ✅ 7. Send confirmation email
+    const emailSubject = 'Order Confirmation - Camila Aguila';
+    const isPreOrder = cartItems.every(item => item.preorder === true);
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
+        <p>Hello,</p>
+        <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}!</p>
+        <!-- ... rest of your email template ... -->
+      </div>
+    `;
+
+    try {
+      await sendConfirmationEmail(email, emailSubject, emailHtml);
+      console.log('📧 Confirmation email sent successfully');
+    } catch (err) {
+      console.error('Error sending email:', err);
     }
 
-    res.status(400).json({ error: "Unknown payment type" });
-
+    res.json({ success: true });
   } catch (err) {
-    console.error("Error verifying mobile payment:", err.response?.data || err.message);
-    res.status(500).json({ error: "Could not verify payment" });
+    console.error("Verification error:", err);
+    res.status(500).json({ error: "Verification failed" });
   }
 });
 

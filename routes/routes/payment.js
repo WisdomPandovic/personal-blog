@@ -1063,6 +1063,8 @@ router.post("/payment/verify-mobile", async (req, res) => {
 
     // ✅ 2. Parse metadata safely
     let metadata = data.metadata;
+    console.log("✅ Metadata received:", metadata);
+    console.log("🛒 Raw cartItems:", metadata.cartItems);
 
     // If metadata is a string, parse it
     if (typeof metadata === "string") {

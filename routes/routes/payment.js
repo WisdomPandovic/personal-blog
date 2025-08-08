@@ -88,6 +88,246 @@ router.post('/payment', async (req, res) => {
   }
 });
 
+// router.post("/products/payment", async (req, res) => {
+//   console.log("🔍 Incoming Request Body:", req.body);
+//   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, country, countryCode, address, postalCode, phoneNumber } = req.body;
+
+//   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
+//     return res.status(400).json({ error: "Invalid payment data." });
+//   }
+
+//   // ✅ Check for out-of-stock items
+//   const hasOutOfStock = cartItems.some(item => item.stock <= 0);
+//   if (hasOutOfStock) {
+//     return res.status(400).json({ error: "One or more items are out of stock. Please update your cart." });
+//   }
+
+//   if (!deliveryMethod) {
+//     return res.status(400).json({ error: "Delivery method is required." });
+//   }
+
+//   if (deliveryMethod === "delivery" && !phoneNumber) {
+//     return res.status(400).json({ error: "Phone number is required for delivery." });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
+
+//     // Explicitly encode the image URLs to preserve their original format
+//     const metadata = {
+//       userId,
+//       email,
+//       cartItems: cartItems.map(item => ({
+//         productId: item.productId,
+//         title: item.title,
+//         image: encodeURIComponent(item.image), // ✅ Encode the image URL
+//         price: item.price,
+//         quantity: item.quantity,
+//         selectedColor: item.selectedColor,
+//         selectedSize: item.selectedSize,
+//         category: item.category
+//       })),
+//       type: "product_purchase",
+//       deliveryMethod,
+//       ...(deliveryMethod === "delivery" && {
+//         country,
+//         countryCode,
+//         address,
+//         postalCode,
+//         phoneNumber,
+//         deliveryFee
+//       })
+//     };
+
+//     console.log("Received Order Data:", req.body);
+//     console.log("Metadata being sent to Paystack:", metadata);
+
+//     // Initialize Paystack payment
+//     const response = await axios.post(
+//       "https://api.paystack.co/transaction/initialize",
+//       {
+//         email,
+//         amount: totalAmount * 100, // Convert to kobo
+//         metadata: JSON.stringify(metadata),
+//       },
+//       {
+//         headers: {
+//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+//           "Content-Type": "application/json",
+//         },
+//       }
+//     );
+//     console.log("✅ Paystack Response:", response.data);
+
+//     // Decrease stock based on selected color
+//     for (let item of cartItems) {
+//       const product = await Product.findById(item.productId); // Assuming `productId` is passed in the cart item
+//       if (!product) {
+//         return res.status(404).json({ error: `Product not found: ${item.productId}` });
+//       }
+
+//       console.log("👉 Product from DB:", product);
+//       console.log("👉 color:", product.color);
+
+//       // If it's a pre-order item, skip the stock check
+//       if (item.preorder) {
+//         // Handle pre-order items, don't deduct stock
+//         console.log(`Pre-order item: ${item.title} (color: ${item.selectedColor})`);
+//         continue; // Skip stock deduction for pre-order items
+//       }
+
+//       // Find the color variant for the selected color
+//       const colorVariant = product.color.find(c => c.color === item.selectedColor);
+//       if (colorVariant) {
+//         if (colorVariant.stock < item.quantity) {
+//           return res.status(400).json({ error: `Not enough stock for color ${item.selectedColor}.` });
+//         }
+
+//         // Deduct the stock
+//         colorVariant.stock -= item.quantity;
+//         await product.save(); // Save the product with updated stock
+//       }
+//     }
+
+//     // 🔐 Save delivery address to user if applicable
+//     if (deliveryMethod === "delivery") {
+//       const user = await User.findById(userId);
+//       if (user) {
+//         const addressExists = user.savedAddresses.some(addr =>
+//           addr.country === country &&
+//           addr.countryCode === countryCode &&
+//           addr.address === address &&
+//           addr.postalCode === postalCode &&
+//           addr.phoneNumber === phoneNumber
+//         );
+
+//         if (!addressExists) {
+//           user.savedAddresses.push({
+//             country,
+//             countryCode,
+//             address,
+//             postalCode,
+//             phoneNumber,
+//             label: "Home", // Optional: use dynamic labels like 'Home'
+//           });
+//           await user.save();
+//           console.log("📦 Address saved to user's profile.");
+//         } else {
+//           console.log("ℹ️ Address already exists in user's profile.");
+//         }
+//       } else {
+//         console.warn("⚠️ User not found to save address.");
+//       }
+//     }
+
+//     // Save transaction data to the database
+//     const transactionData = {
+//       userId, // Ensure userId is converted to ObjectId
+//       reference: response.data.data.reference,
+//       amount: totalAmount,
+//       status: response.data.data.status,
+//       channel: response.data.data.channel,
+//       currency: response.data.data.currency,
+//       metadata: metadata,
+//       gatewayResponse: response.data.message,
+//       paymentMethod: "Paystack", // You can customize this based on the channel
+//     };
+
+//     const transaction = new Transaction(transactionData);
+//     await transaction.save();
+//     console.log("Transaction saved to database:", transaction);
+
+//     // 🛎 Create an admin notification
+//     try {
+//       const user = await User.findById(userId); // Fetch user info
+
+//       const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user"; // Adjust based on your User model fields
+
+//       const notificationMessage = `${userName} just paid for ${cartItems.length} item(s).`; // 🛎 The message shown to admin
+
+//       const newNotification = new Notification({
+//         message: notificationMessage,
+//         type: "payment", // You can use 'payment' or 'order'
+//       });
+
+//       await newNotification.save();
+//       console.log('🔔 Admin notification created successfully');
+//     } catch (notificationError) {
+//       console.error('Error creating admin notification:', notificationError);
+//     }
+
+//     const emailSubject = 'Order Confirmation - Camila Aguila';
+
+//     const isPreOrder = cartItems.every(item => item.preorder === true);
+
+//     const emailHtml = `
+//   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+//     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
+//     <p>Hello,</p>
+//     <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${isPreOrder
+//         ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
+//         : "Your order has been received and is now being processed."
+//       }</p>
+
+//     <h3>📦 Order Details</h3>
+//     <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
+//     <p><strong>Email:</strong> ${email || "N/A"}</p>
+//     <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
+//     ${deliveryMethod === "delivery"
+//         ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
+//         : ""
+//       }
+
+//     <h3>🛍 Items Ordered</h3>
+//     <ul>
+//       ${Array.isArray(cartItems) && cartItems.length > 0
+//         ? cartItems
+//           .map(
+//             (item) => `
+//                   <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"
+//               }, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"
+//               }) - $${item.price || "0.00"}</li>`
+//           )
+//           .join("")
+//         : "<li>No items ordered.</li>"
+//       }
+//     </ul>
+
+//     <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
+
+//     ${!isPreOrder
+//         ? `
+//     <p>If you have any issues or would like to request a return, click the button below:</p>
+
+//     <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""
+//         }" 
+//        style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
+//        aria-label="Start a Return Request">
+//        Start a Return Request
+//     </a>`
+//         : ""
+//       }
+
+//     <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
+//   </div>
+// `;
+
+//     try {
+//       await sendConfirmationEmail(email, emailSubject, emailHtml);
+//       console.log('Confirmation email sent successfully');
+//     } catch (error) {
+//       console.error('Error sending confirmation email:', error);
+//     }
+
+//     res.status(200).json({ authorization_url: response.data.data.authorization_url });
+//   } catch (err) {
+//     console.error("Error initializing payment:", err);
+//     res.status(500).json({ error: "Payment initialization failed" });
+//   }
+// });
+
 router.post("/products/payment", async (req, res) => {
   console.log("🔍 Incoming Request Body:", req.body);
   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, country, countryCode, address, postalCode, phoneNumber } = req.body;
@@ -96,12 +336,23 @@ router.post("/products/payment", async (req, res) => {
     return res.status(400).json({ error: "Invalid payment data." });
   }
 
-  // ✅ Check for out-of-stock items
-  const hasOutOfStock = cartItems.some(item => item.stock <= 0);
-  if (hasOutOfStock) {
-    return res.status(400).json({ error: "One or more items are out of stock. Please update your cart." });
+  // ✅ Validate stock — but don't reduce yet
+  for (let item of cartItems) {
+    const product = await Product.findById(item.productId);
+    if (!product) {
+      return res.status(404).json({ error: `Product not found: ${item.productId}` });
+    }
+
+    if (!item.preorder) {
+      const colorVariant = product.color.find(c => c.color === item.selectedColor);
+      if (!colorVariant || colorVariant.stock < item.quantity) {
+        return res.status(400).json({ 
+          error: `Not enough stock for ${item.title} (${item.selectedColor}).` 
+        });
+      }
+    }
   }
-  
+
   if (!deliveryMethod) {
     return res.status(400).json({ error: "Delivery method is required." });
   }
@@ -112,22 +363,22 @@ router.post("/products/payment", async (req, res) => {
 
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
 
-    // Explicitly encode the image URLs to preserve their original format
+    // ✅ Prepare metadata (no stock reduction yet)
     const metadata = {
       userId,
       email,
       cartItems: cartItems.map(item => ({
         productId: item.productId,
         title: item.title,
-        image: encodeURIComponent(item.image), // ✅ Encode the image URL
+        image: encodeURIComponent(item.image),
         price: item.price,
         quantity: item.quantity,
         selectedColor: item.selectedColor,
         selectedSize: item.selectedSize,
-        category: item.category
+        category: item.category,
+        preorder: item.preorder
       })),
       type: "product_purchase",
       deliveryMethod,
@@ -144,12 +395,12 @@ router.post("/products/payment", async (req, res) => {
     console.log("Received Order Data:", req.body);
     console.log("Metadata being sent to Paystack:", metadata);
 
-    // Initialize Paystack payment
+    // ✅ Initialize Paystack payment
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
         email,
-        amount: totalAmount * 100, // Convert to kobo
+        amount: totalAmount * 100,
         metadata: JSON.stringify(metadata),
       },
       {
@@ -159,39 +410,27 @@ router.post("/products/payment", async (req, res) => {
         },
       }
     );
+
     console.log("✅ Paystack Response:", response.data);
 
-    // Decrease stock based on selected color
-    for (let item of cartItems) {
-      const product = await Product.findById(item.productId); // Assuming `productId` is passed in the cart item
-      if (!product) {
-        return res.status(404).json({ error: `Product not found: ${item.productId}` });
-      }
+    // ✅ Save transaction as PENDING
+    const transactionData = {
+      userId,
+      reference: response.data.data.reference,
+      amount: totalAmount,
+      status: "pending",
+      channel: response.data.data.channel,
+      currency: response.data.data.currency,
+      metadata: metadata,
+      gatewayResponse: response.data.message,
+      paymentMethod: "Paystack",
+    };
 
-      console.log("👉 Product from DB:", product);
-      console.log("👉 color:", product.color);
+    const transaction = new Transaction(transactionData);
+    await transaction.save();
+    console.log("Transaction saved to database:", transaction);
 
-      // If it's a pre-order item, skip the stock check
-      if (item.preorder) {
-        // Handle pre-order items, don't deduct stock
-        console.log(`Pre-order item: ${item.title} (color: ${item.selectedColor})`);
-        continue; // Skip stock deduction for pre-order items
-      }
-
-      // Find the color variant for the selected color
-      const colorVariant = product.color.find(c => c.color === item.selectedColor);
-      if (colorVariant) {
-        if (colorVariant.stock < item.quantity) {
-          return res.status(400).json({ error: `Not enough stock for color ${item.selectedColor}.` });
-        }
-
-        // Deduct the stock
-        colorVariant.stock -= item.quantity;
-        await product.save(); // Save the product with updated stock
-      }
-    }
-
-    // 🔐 Save delivery address to user if applicable
+    // ✅ Save delivery address (if delivery)
     if (deliveryMethod === "delivery") {
       const user = await User.findById(userId);
       if (user) {
@@ -210,123 +449,48 @@ router.post("/products/payment", async (req, res) => {
             address,
             postalCode,
             phoneNumber,
-            label: "Home", // Optional: use dynamic labels like 'Home'
+            label: "Home",
           });
           await user.save();
           console.log("📦 Address saved to user's profile.");
-        } else {
-          console.log("ℹ️ Address already exists in user's profile.");
         }
-      } else {
-        console.warn("⚠️ User not found to save address.");
       }
     }
 
-    // Save transaction data to the database
-    const transactionData = {
-      userId, // Ensure userId is converted to ObjectId
-      reference: response.data.data.reference,
-      amount: totalAmount,
-      status: response.data.data.status,
-      channel: response.data.data.channel,
-      currency: response.data.data.currency,
-      metadata: metadata,
-      gatewayResponse: response.data.message,
-      paymentMethod: "Paystack", // You can customize this based on the channel
-    };
+    // ✅ Return only the URL — NO EMAIL, NO STOCK REDUCTION
+    res.status(200).json({ 
+      authorization_url: response.data.data.authorization_url,
+      reference: response.data.data.reference 
+    });
 
-    const transaction = new Transaction(transactionData);
-    await transaction.save();
-    console.log("Transaction saved to database:", transaction);
-
-    // 🛎 Create an admin notification
-    try {
-      const user = await User.findById(userId); // Fetch user info
-
-      const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user"; // Adjust based on your User model fields
-
-      const notificationMessage = `${userName} just paid for ${cartItems.length} item(s).`; // 🛎 The message shown to admin
-
-      const newNotification = new Notification({
-        message: notificationMessage,
-        type: "payment", // You can use 'payment' or 'order'
-      });
-
-      await newNotification.save();
-      console.log('🔔 Admin notification created successfully');
-    } catch (notificationError) {
-      console.error('Error creating admin notification:', notificationError);
-    }
-
-    const emailSubject = 'Order Confirmation - Camila Aguila';
-
-    const isPreOrder = cartItems.every(item => item.preorder === true);
-
-    const emailHtml = `
-  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-    <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
-    <p>Hello,</p>
-    <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${isPreOrder
-        ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
-        : "Your order has been received and is now being processed."
-      }</p>
-
-    <h3>📦 Order Details</h3>
-    <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
-    <p><strong>Email:</strong> ${email || "N/A"}</p>
-    <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
-    ${deliveryMethod === "delivery"
-        ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
-        : ""
-      }
-
-    <h3>🛍 Items Ordered</h3>
-    <ul>
-      ${Array.isArray(cartItems) && cartItems.length > 0
-        ? cartItems
-          .map(
-            (item) => `
-                  <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"
-              }, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"
-              }) - $${item.price || "0.00"}</li>`
-          )
-          .join("")
-        : "<li>No items ordered.</li>"
-      }
-    </ul>
-
-    <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
-
-    ${!isPreOrder
-        ? `
-    <p>If you have any issues or would like to request a return, click the button below:</p>
-
-    <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""
-        }" 
-       style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
-       aria-label="Start a Return Request">
-       Start a Return Request
-    </a>`
-        : ""
-      }
-
-    <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
-  </div>
-`;
-
-    try {
-      await sendConfirmationEmail(email, emailSubject, emailHtml);
-      console.log('Confirmation email sent successfully');
-    } catch (error) {
-      console.error('Error sending confirmation email:', error);
-    }
-
-    res.status(200).json({ authorization_url: response.data.data.authorization_url });
   } catch (err) {
     console.error("Error initializing payment:", err);
     res.status(500).json({ error: "Payment initialization failed" });
   }
 });
+
+// router.get('/payment/verify/:reference', async (req, res) => {
+//   const { reference } = req.params;
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     // Make a GET request to Paystack to verify the payment using the reference
+//     const response = await axios.get(
+//       `https://api.paystack.co/transaction/verify/${reference}`,
+//       {
+//         headers: {
+//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+//         },
+//       }
+//     );
+
+//     res.status(200).json(response.data);
+//   } catch (err) {
+//     console.error('Error verifying payment:', err);
+//     res.status(500).json({ error: 'Payment verification failed' });
+//   }
+// });
 
 router.get('/payment/verify/:reference', async (req, res) => {
   const { reference } = req.params;
@@ -334,7 +498,7 @@ router.get('/payment/verify/:reference', async (req, res) => {
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-    // Make a GET request to Paystack to verify the payment using the reference
+    // ✅ 1. Verify with Paystack
     const response = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
@@ -344,7 +508,155 @@ router.get('/payment/verify/:reference', async (req, res) => {
       }
     );
 
-    res.status(200).json(response.data);
+    const data = response.data.data;
+
+    // ✅ 2. Confirm payment succeeded
+    if (data.status !== "success") {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Payment not successful", 
+        status: data.status 
+      });
+    }
+
+    // ✅ 3. Parse metadata
+    let metadata = data.metadata;
+    if (typeof metadata === "string") {
+      try {
+        metadata = JSON.parse(metadata);
+      } catch (e) {
+        return res.status(400).json({ error: "Invalid metadata format" });
+      }
+    }
+
+    const { userId, email, cartItems, deliveryMethod } = metadata;
+
+    // ✅ 4. Prevent duplicate processing
+    const existingOrder = await Order.findOne({ paymentReference: reference });
+    if (existingOrder) {
+      return res.redirect(`/order/${existingOrder._id}`);
+    }
+
+    // ✅ 5. Create the Order
+    const order = new Order({
+      userId,
+      email,
+      cartItems,
+      deliveryMethod,
+      address: metadata.address,
+      phoneNumber: metadata.phoneNumber,
+      country: metadata.country,
+      countryCode: metadata.countryCode,
+      postalCode: metadata.postalCode,
+      deliveryFee: metadata.deliveryFee || 0,
+      totalAmount: data.amount / 100, // kobo to naira
+      paymentReference: reference,
+      status: "confirmed",
+      paidAt: new Date(),
+    });
+
+    await order.save();
+    console.log("✅ Order created:", order._id);
+
+    // ✅ 6. Reduce stock (skip for preorder)
+    for (const item of cartItems) {
+      if (item.preorder) continue;
+
+      const product = await Product.findById(item.productId);
+      if (!product) continue;
+
+      const colorVariant = product.color.find(c => c.color === item.selectedColor);
+      if (colorVariant && colorVariant.stock >= item.quantity) {
+        colorVariant.stock -= item.quantity;
+        await product.save();
+        console.log(`📦 Stock reduced for ${item.title} (${item.selectedColor})`);
+      }
+    }
+
+    // ✅ 7. Update transaction status
+    await Transaction.findOneAndUpdate(
+      { reference },
+      { status: "success", paidAt: new Date() }
+    );
+
+    // ✅ 8. Save address to user (if delivery)
+    if (deliveryMethod === "delivery" && userId) {
+      const user = await User.findById(userId);
+      if (user) {
+        const exists = user.savedAddresses.some(addr =>
+          addr.address === metadata.address &&
+          addr.phoneNumber === metadata.phoneNumber
+        );
+
+        if (!exists) {
+          user.savedAddresses.push({
+            country: metadata.country,
+            countryCode: metadata.countryCode,
+            address: metadata.address,
+            postalCode: metadata.postalCode,
+            phoneNumber: metadata.phoneNumber,
+            label: "Home",
+          });
+          await user.save();
+        }
+      }
+    }
+
+    // ✅ 9. Notify admin
+    try {
+      const user = await User.findById(userId);
+      const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
+      const notification = new Notification({
+        message: `${userName} just paid for ${cartItems.length} item(s).`,
+        type: "payment",
+      });
+      await notification.save();
+      console.log('🔔 Admin notification created');
+    } catch (err) {
+      console.error('Error creating admin notification:', err);
+    }
+
+    // ✅ 10. Send confirmation email
+    const emailSubject = 'Order Confirmation - Camila Aguila';
+    const isPreOrder = cartItems.every(item => item.preorder === true);
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
+        <p>Hello,</p>
+        <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${isPreOrder
+          ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
+          : "Your order has been received and is now being processed."
+        }</p>
+        <h3>📦 Order Details</h3>
+        <p><strong>Order Reference:</strong> ${reference}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
+        ${deliveryMethod === "delivery"
+          ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
+          : ""
+        }
+        <h3>🛍 Items Ordered</h3>
+        <ul>
+          ${cartItems.map(item => `
+            <li>${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}</li>
+          `).join("")}
+        </ul>
+        <p><strong>Total Amount:</strong> $${(data.amount / 100).toFixed(2)}</p>
+        <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
+      </div>
+    `;
+
+    try {
+      await sendConfirmationEmail(email, emailSubject, emailHtml);
+      console.log('📧 Confirmation email sent successfully');
+    } catch (emailErr) {
+      console.error('Error sending email:', emailErr);
+    }
+
+    // ✅ 11. Redirect to order confirmation page
+    res.redirect(`/order/${order._id}`);
+
   } catch (err) {
     console.error('Error verifying payment:', err);
     res.status(500).json({ error: 'Payment verification failed' });

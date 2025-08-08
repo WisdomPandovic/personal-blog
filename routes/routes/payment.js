@@ -1112,7 +1112,7 @@ router.post("/payment/verify-mobile", async (req, res) => {
       const order = new Order({
         userId,
         email,
-        cartItems, // ✅ Now a valid array
+        items: cartItems,// ✅ Now a valid array
         deliveryMethod,
         address: metadata.address,
         phoneNumber: metadata.phoneNumber,

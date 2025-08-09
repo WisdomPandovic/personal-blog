@@ -88,246 +88,6 @@ router.post('/payment', async (req, res) => {
   }
 });
 
-// router.post("/products/payment", async (req, res) => {
-//   console.log("🔍 Incoming Request Body:", req.body);
-//   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, country, countryCode, address, postalCode, phoneNumber } = req.body;
-
-//   if (!amount || !email || !userId || !cartItems || cartItems.length === 0) {
-//     return res.status(400).json({ error: "Invalid payment data." });
-//   }
-
-//   // ✅ Check for out-of-stock items
-//   const hasOutOfStock = cartItems.some(item => item.stock <= 0);
-//   if (hasOutOfStock) {
-//     return res.status(400).json({ error: "One or more items are out of stock. Please update your cart." });
-//   }
-
-//   if (!deliveryMethod) {
-//     return res.status(400).json({ error: "Delivery method is required." });
-//   }
-
-//   if (deliveryMethod === "delivery" && !phoneNumber) {
-//     return res.status(400).json({ error: "Phone number is required for delivery." });
-//   }
-
-//   try {
-//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
-//     const totalAmount = deliveryMethod === "delivery" ? amount + deliveryFee : amount;
-
-//     // Explicitly encode the image URLs to preserve their original format
-//     const metadata = {
-//       userId,
-//       email,
-//       cartItems: cartItems.map(item => ({
-//         productId: item.productId,
-//         title: item.title,
-//         image: encodeURIComponent(item.image), // ✅ Encode the image URL
-//         price: item.price,
-//         quantity: item.quantity,
-//         selectedColor: item.selectedColor,
-//         selectedSize: item.selectedSize,
-//         category: item.category
-//       })),
-//       type: "product_purchase",
-//       deliveryMethod,
-//       ...(deliveryMethod === "delivery" && {
-//         country,
-//         countryCode,
-//         address,
-//         postalCode,
-//         phoneNumber,
-//         deliveryFee
-//       })
-//     };
-
-//     console.log("Received Order Data:", req.body);
-//     console.log("Metadata being sent to Paystack:", metadata);
-
-//     // Initialize Paystack payment
-//     const response = await axios.post(
-//       "https://api.paystack.co/transaction/initialize",
-//       {
-//         email,
-//         amount: totalAmount * 100, // Convert to kobo
-//         metadata: JSON.stringify(metadata),
-//       },
-//       {
-//         headers: {
-//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-//           "Content-Type": "application/json",
-//         },
-//       }
-//     );
-//     console.log("✅ Paystack Response:", response.data);
-
-//     // Decrease stock based on selected color
-//     for (let item of cartItems) {
-//       const product = await Product.findById(item.productId); // Assuming `productId` is passed in the cart item
-//       if (!product) {
-//         return res.status(404).json({ error: `Product not found: ${item.productId}` });
-//       }
-
-//       console.log("👉 Product from DB:", product);
-//       console.log("👉 color:", product.color);
-
-//       // If it's a pre-order item, skip the stock check
-//       if (item.preorder) {
-//         // Handle pre-order items, don't deduct stock
-//         console.log(`Pre-order item: ${item.title} (color: ${item.selectedColor})`);
-//         continue; // Skip stock deduction for pre-order items
-//       }
-
-//       // Find the color variant for the selected color
-//       const colorVariant = product.color.find(c => c.color === item.selectedColor);
-//       if (colorVariant) {
-//         if (colorVariant.stock < item.quantity) {
-//           return res.status(400).json({ error: `Not enough stock for color ${item.selectedColor}.` });
-//         }
-
-//         // Deduct the stock
-//         colorVariant.stock -= item.quantity;
-//         await product.save(); // Save the product with updated stock
-//       }
-//     }
-
-//     // 🔐 Save delivery address to user if applicable
-//     if (deliveryMethod === "delivery") {
-//       const user = await User.findById(userId);
-//       if (user) {
-//         const addressExists = user.savedAddresses.some(addr =>
-//           addr.country === country &&
-//           addr.countryCode === countryCode &&
-//           addr.address === address &&
-//           addr.postalCode === postalCode &&
-//           addr.phoneNumber === phoneNumber
-//         );
-
-//         if (!addressExists) {
-//           user.savedAddresses.push({
-//             country,
-//             countryCode,
-//             address,
-//             postalCode,
-//             phoneNumber,
-//             label: "Home", // Optional: use dynamic labels like 'Home'
-//           });
-//           await user.save();
-//           console.log("📦 Address saved to user's profile.");
-//         } else {
-//           console.log("ℹ️ Address already exists in user's profile.");
-//         }
-//       } else {
-//         console.warn("⚠️ User not found to save address.");
-//       }
-//     }
-
-//     // Save transaction data to the database
-//     const transactionData = {
-//       userId, // Ensure userId is converted to ObjectId
-//       reference: response.data.data.reference,
-//       amount: totalAmount,
-//       status: response.data.data.status,
-//       channel: response.data.data.channel,
-//       currency: response.data.data.currency,
-//       metadata: metadata,
-//       gatewayResponse: response.data.message,
-//       paymentMethod: "Paystack", // You can customize this based on the channel
-//     };
-
-//     const transaction = new Transaction(transactionData);
-//     await transaction.save();
-//     console.log("Transaction saved to database:", transaction);
-
-//     // 🛎 Create an admin notification
-//     try {
-//       const user = await User.findById(userId); // Fetch user info
-
-//       const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user"; // Adjust based on your User model fields
-
-//       const notificationMessage = `${userName} just paid for ${cartItems.length} item(s).`; // 🛎 The message shown to admin
-
-//       const newNotification = new Notification({
-//         message: notificationMessage,
-//         type: "payment", // You can use 'payment' or 'order'
-//       });
-
-//       await newNotification.save();
-//       console.log('🔔 Admin notification created successfully');
-//     } catch (notificationError) {
-//       console.error('Error creating admin notification:', notificationError);
-//     }
-
-//     const emailSubject = 'Order Confirmation - Camila Aguila';
-
-//     const isPreOrder = cartItems.every(item => item.preorder === true);
-
-//     const emailHtml = `
-//   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-//     <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
-//     <p>Hello,</p>
-//     <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}! ${isPreOrder
-//         ? "Your pre-order has been received. We’ll notify you once your items are available for shipping."
-//         : "Your order has been received and is now being processed."
-//       }</p>
-
-//     <h3>📦 Order Details</h3>
-//     <p><strong>Order Reference:</strong> ${response.data.data.reference || "N/A"}</p>
-//     <p><strong>Email:</strong> ${email || "N/A"}</p>
-//     <p><strong>Delivery Method:</strong> ${deliveryMethod || "N/A"}</p>
-//     ${deliveryMethod === "delivery"
-//         ? `<p><strong>Address:</strong> ${address || "N/A"}<br/><strong>Postal Code:</strong> ${postalCode || "N/A"}<br/><strong>Phone:</strong> ${phoneNumber || "N/A"}</p>`
-//         : ""
-//       }
-
-//     <h3>🛍 Items Ordered</h3>
-//     <ul>
-//       ${Array.isArray(cartItems) && cartItems.length > 0
-//         ? cartItems
-//           .map(
-//             (item) => `
-//                   <li>${item.title || "Untitled Item"} (Size: ${item.selectedSize || "N/A"
-//               }, Color: ${item.selectedColor || "N/A"}, Qty: ${item.quantity || "N/A"
-//               }) - $${item.price || "0.00"}</li>`
-//           )
-//           .join("")
-//         : "<li>No items ordered.</li>"
-//       }
-//     </ul>
-
-//     <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
-
-//     ${!isPreOrder
-//         ? `
-//     <p>If you have any issues or would like to request a return, click the button below:</p>
-
-//     <a href="https://chilla-sweella-personal-blog.vercel.app/pages/return-request?orderNumber=${response.data.data.reference || ""
-//         }" 
-//        style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;"
-//        aria-label="Start a Return Request">
-//        Start a Return Request
-//     </a>`
-//         : ""
-//       }
-
-//     <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
-//   </div>
-// `;
-
-//     try {
-//       await sendConfirmationEmail(email, emailSubject, emailHtml);
-//       console.log('Confirmation email sent successfully');
-//     } catch (error) {
-//       console.error('Error sending confirmation email:', error);
-//     }
-
-//     res.status(200).json({ authorization_url: response.data.data.authorization_url });
-//   } catch (err) {
-//     console.error("Error initializing payment:", err);
-//     res.status(500).json({ error: "Payment initialization failed" });
-//   }
-// });
-
 router.post("/products/payment", async (req, res) => {
   console.log("🔍 Incoming Request Body:", req.body);
   const { amount, email, userId, cartItems, deliveryMethod, deliveryFee, country, countryCode, address, postalCode, phoneNumber } = req.body;
@@ -468,29 +228,6 @@ router.post("/products/payment", async (req, res) => {
     res.status(500).json({ error: "Payment initialization failed" });
   }
 });
-
-// router.get('/payment/verify/:reference', async (req, res) => {
-//   const { reference } = req.params;
-
-//   try {
-//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
-//     // Make a GET request to Paystack to verify the payment using the reference
-//     const response = await axios.get(
-//       `https://api.paystack.co/transaction/verify/${reference}`,
-//       {
-//         headers: {
-//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-//         },
-//       }
-//     );
-
-//     res.status(200).json(response.data);
-//   } catch (err) {
-//     console.error('Error verifying payment:', err);
-//     res.status(500).json({ error: 'Payment verification failed' });
-//   }
-// });
 
 router.get('/payment/verify/:reference', async (req, res) => {
   const { reference } = req.params;
@@ -854,6 +591,174 @@ router.get("/payment/callback", async (req, res) => {
 });
 
 // Mobile verification endpoint
+// router.post("/payment/verify-mobile", async (req, res) => {
+//   const { reference } = req.body;
+
+//   if (!reference) {
+//     return res.status(400).json({ error: "Reference is required" });
+//   }
+
+//   try {
+//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+//     // ✅ 1. Verify with Paystack
+//     const verifyRes = await axios.get(
+//       `https://api.paystack.co/transaction/verify/${reference}`,
+//       {
+//         headers: {
+//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+//         },
+//       }
+//     );
+
+//     const data = verifyRes.data.data;
+
+//     if (data.status !== "success") {
+//       return res.status(400).json({ error: "Payment not successful" });
+//     }
+
+//     // ✅ 2. Parse metadata safely
+//     let metadata = data.metadata;
+//     console.log("✅ Metadata received:", metadata);
+//     console.log("🛒 Raw cartItems:", metadata.cartItems);
+
+//     // If metadata is a string, parse it
+//     if (typeof metadata === "string") {
+//       try {
+//         metadata = JSON.parse(metadata);
+//       } catch (e) {
+//         console.error("Failed to parse metadata:", metadata);
+//         return res.status(400).json({ error: "Invalid metadata format" });
+//       }
+//     }
+
+//     // ✅ 3. Parse cartItems if it's a string
+//     let cartItems = metadata.cartItems;
+
+//     // ✅ Debug: Log cartItems before checking if it's an array
+//     console.log("🛒 Raw cartItems from metadata:", cartItems);
+
+//     if (typeof cartItems === "string") {
+//       try {
+//         cartItems = JSON.parse(cartItems);
+//         console.log("🛒 Parsed cartItems:", cartItems);
+//       } catch (e) {
+//         console.error("Failed to parse cartItems:", cartItems);
+//         return res.status(400).json({ error: "Invalid cartItems format" });
+//       }
+//     }
+
+//     // ✅ 4. Validate cartItems is an array
+//     if (!Array.isArray(cartItems)) {
+//       console.error("cartItems is not an array:", cartItems);
+//       return res.status(400).json({ error: "cartItems must be an array" });
+//     }
+
+//     const { userId, email, deliveryMethod } = metadata;
+
+//     // ✅ 5. Update transaction status
+//     await Transaction.findOneAndUpdate(
+//       { reference },
+//       { status: "success", paidAt: new Date() }
+//     );
+
+//     // ✅ 6. Create Order (if not exists)
+//     let orderId;
+
+//     const existingOrder = await Order.findOne({ paymentReference: reference });
+//     if (!existingOrder) {
+//       const order = new Order({
+//         userId,
+//         email,
+//         items: cartItems,
+//         deliveryMethod,
+//         address: metadata.address,
+//         phoneNumber: metadata.phoneNumber,
+//         country: metadata.country,
+//         countryCode: metadata.countryCode,
+//         postalCode: metadata.postalCode,
+//         deliveryFee: metadata.deliveryFee || 0,
+//         totalAmount: data.amount / 100,
+//         paymentReference: reference,
+//         status: "paid",
+//       });
+//       const savedOrder = await order.save();
+//       orderId = savedOrder._id;
+//     } else {
+//       orderId = existingOrder._id;
+//     }
+
+//     // ✅ 7. Reduce stock (skip pre-order)
+//     for (const item of cartItems) {
+//       if (item.preorder) continue;
+
+//       const product = await Product.findById(item.productId);
+//       if (!product) continue;
+
+//       const colorVariant = product.color.find(c => c.color === item.selectedColor);
+//       if (colorVariant && colorVariant.stock >= item.quantity) {
+//         colorVariant.stock -= item.quantity;
+//         await product.save();
+//       }
+//     }
+
+//     // ✅ 8. Notify admin
+//     try {
+//       const user = await User.findById(userId);
+//       const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
+//       const notification = new Notification({
+//         message: `${userName} just paid for ${cartItems.length} item(s).`,
+//         type: "payment",
+//       });
+//       await notification.save();
+//       console.log('🔔 Admin notification created successfully');
+//     } catch (err) {
+//       console.error('Error creating admin notification:', err);
+//     }
+
+//     // ✅ 9. Send confirmation email
+//     const emailSubject = 'Order Confirmation - Camila Aguila';
+//     const isPreOrder = cartItems.every(item => item.preorder === true);
+
+//     const emailHtml = `
+//       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+//         <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
+//         <p>Hello,</p>
+//         <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}!</p>
+//         <h3>📦 Order Details</h3>
+//         <p><strong>Order Reference:</strong> ${reference}</p>
+//         <p><strong>Email:</strong> ${email}</p>
+//         <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
+//         ${deliveryMethod === "delivery"
+//         ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
+//         : ""
+//       }
+//         <h3>🛍 Items Ordered</h3>
+//         <ul>
+//           ${cartItems.map(item => `
+//             <li>${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}</li>
+//           `).join("")}
+//         </ul>
+//         <p><strong>Total Amount:</strong> $${(data.amount / 100).toFixed(2)}</p>
+//         <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
+//       </div>
+//     `;
+
+//     try {
+//       await sendConfirmationEmail(email, emailSubject, emailHtml);
+//       console.log('📧 Confirmation email sent successfully');
+//     } catch (err) {
+//       console.error('Error sending email:', err);
+//     }
+
+//     // res.json({ success: true });
+//     res.json({ success: true, orderId });
+//   } catch (err) {
+//     console.error("Verification error:", err);
+//     res.status(500).json({ error: "Verification failed" });
+//   }
+// });
+
 router.post("/payment/verify-mobile", async (req, res) => {
   const { reference } = req.body;
 
@@ -861,10 +766,26 @@ router.post("/payment/verify-mobile", async (req, res) => {
     return res.status(400).json({ error: "Reference is required" });
   }
 
+  // Helper function to encode Firebase Storage URLs correctly
+  function encodeFirebaseUrl(url) {
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/o/');
+      if (pathParts.length < 2) return url;
+
+      const baseUrl = urlObj.origin;
+      const encodedPath = encodeURIComponent(pathParts[1]);
+      return `${baseUrl}/o/${encodedPath}${urlObj.search}`;
+    } catch (err) {
+      // if invalid URL, return as is
+      return url;
+    }
+  }
+
   try {
     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-    // ✅ 1. Verify with Paystack
+    // 1. Verify payment with Paystack API
     const verifyRes = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
@@ -880,12 +801,11 @@ router.post("/payment/verify-mobile", async (req, res) => {
       return res.status(400).json({ error: "Payment not successful" });
     }
 
-    // ✅ 2. Parse metadata safely
+    // 2. Parse metadata safely
     let metadata = data.metadata;
     console.log("✅ Metadata received:", metadata);
     console.log("🛒 Raw cartItems:", metadata.cartItems);
 
-    // If metadata is a string, parse it
     if (typeof metadata === "string") {
       try {
         metadata = JSON.parse(metadata);
@@ -895,10 +815,9 @@ router.post("/payment/verify-mobile", async (req, res) => {
       }
     }
 
-    // ✅ 3. Parse cartItems if it's a string
+    // 3. Parse cartItems if string
     let cartItems = metadata.cartItems;
 
-    // ✅ Debug: Log cartItems before checking if it's an array
     console.log("🛒 Raw cartItems from metadata:", cartItems);
 
     if (typeof cartItems === "string") {
@@ -911,7 +830,6 @@ router.post("/payment/verify-mobile", async (req, res) => {
       }
     }
 
-    // ✅ 4. Validate cartItems is an array
     if (!Array.isArray(cartItems)) {
       console.error("cartItems is not an array:", cartItems);
       return res.status(400).json({ error: "cartItems must be an array" });
@@ -919,33 +837,19 @@ router.post("/payment/verify-mobile", async (req, res) => {
 
     const { userId, email, deliveryMethod } = metadata;
 
-    // ✅ 5. Update transaction status
+    // 4. Update transaction status
     await Transaction.findOneAndUpdate(
       { reference },
       { status: "success", paidAt: new Date() }
     );
 
-    // ✅ 6. Create Order (if not exists)
-    // const existingOrder = await Order.findOne({ paymentReference: reference });
-    // if (!existingOrder) {
-    //   const order = new Order({
-    //     userId,
-    //     email,
-    //     items: cartItems,// ✅ Now a valid array
-    //     deliveryMethod,
-    //     address: metadata.address,
-    //     phoneNumber: metadata.phoneNumber,
-    //     country: metadata.country,
-    //     countryCode: metadata.countryCode,
-    //     postalCode: metadata.postalCode,
-    //     deliveryFee: metadata.deliveryFee || 0,
-    //     totalAmount: data.amount / 100,
-    //     paymentReference: reference,
-    //     status: "paid",
-    //   });
-    //   await order.save();
-    // }
+    // 5. Encode image URLs inside cartItems before saving order
+    const encodedCartItems = cartItems.map(item => ({
+      ...item,
+      image: encodeFirebaseUrl(item.image),
+    }));
 
+    // 6. Create Order (if not exists)
     let orderId;
 
     const existingOrder = await Order.findOne({ paymentReference: reference });
@@ -953,7 +857,7 @@ router.post("/payment/verify-mobile", async (req, res) => {
       const order = new Order({
         userId,
         email,
-        items: cartItems,
+        items: encodedCartItems,
         deliveryMethod,
         address: metadata.address,
         phoneNumber: metadata.phoneNumber,
@@ -971,7 +875,7 @@ router.post("/payment/verify-mobile", async (req, res) => {
       orderId = existingOrder._id;
     }
 
-    // ✅ 7. Reduce stock (skip pre-order)
+    // 7. Reduce stock (skip pre-order)
     for (const item of cartItems) {
       if (item.preorder) continue;
 
@@ -985,7 +889,7 @@ router.post("/payment/verify-mobile", async (req, res) => {
       }
     }
 
-    // ✅ 8. Notify admin
+    // 8. Notify admin
     try {
       const user = await User.findById(userId);
       const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
@@ -999,7 +903,7 @@ router.post("/payment/verify-mobile", async (req, res) => {
       console.error('Error creating admin notification:', err);
     }
 
-    // ✅ 9. Send confirmation email
+    // 9. Send confirmation email
     const emailSubject = 'Order Confirmation - Camila Aguila';
     const isPreOrder = cartItems.every(item => item.preorder === true);
 
@@ -1012,15 +916,19 @@ router.post("/payment/verify-mobile", async (req, res) => {
         <p><strong>Order Reference:</strong> ${reference}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
-        ${deliveryMethod === "delivery"
-        ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
-        : ""
-      }
+        ${
+          deliveryMethod === "delivery"
+            ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
+            : ""
+        }
         <h3>🛍 Items Ordered</h3>
         <ul>
-          ${cartItems.map(item => `
-            <li>${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}</li>
-          `).join("")}
+          ${encodedCartItems
+            .map(
+              item =>
+                `<li>${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}</li>`
+            )
+            .join("")}
         </ul>
         <p><strong>Total Amount:</strong> $${(data.amount / 100).toFixed(2)}</p>
         <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
@@ -1034,7 +942,6 @@ router.post("/payment/verify-mobile", async (req, res) => {
       console.error('Error sending email:', err);
     }
 
-    // res.json({ success: true });
     res.json({ success: true, orderId });
   } catch (err) {
     console.error("Verification error:", err);

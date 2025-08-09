@@ -244,51 +244,6 @@ router.get('/users-with-posts', async (req, res) => {
     }
 });
 
-// router.post('/login', async (req, res) => {
-//     try {
-//         const { username, password } = req.body;
-//         console.log("Received login request with username:", username, "and password:", password);
-
-//         // Find the user by username
-//         const user = await User.findOne({ username });
-//         console.log("Retrieved user from database:", user);
-
-//         if (!user) {
-//             console.log("User not found in the database");
-//             return res.status(404).json({ msg: 'Invalid username or password' });
-//         }
-
-//         console.log("Retrieved hashed password from the database:", user.password);
-
-//         // Compare the plain text password from the request with the hashed password stored in the database
-//         const isPasswordValid = await bcrypt.compare(password, user.password);
-//         console.log("Password comparison result:", isPasswordValid);
-//         if (!isPasswordValid) {
-//             return res.status(401).json({ msg: 'Invalid username or password' });
-//         }
-
-//         if (!user.isVerified) {
-//             return res.status(401).json({ msg: 'Please verify your email before logging in.' });
-//         }        
-
-//         const payload = { userId: user._id, role: user.role, userEmail: user.email, };
-//         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-//         if (isPasswordValid) {
-//             // Passwords match, handle successful login
-//             // Optionally, you can include user details in the response
-//             res.json({ success: true, msg: 'Login successful', user, token });
-//         } else {
-//             // Passwords don't match, handle unsuccessful login
-//             console.log("Password is invalid");
-//             res.status(401).json({ msg: 'Invalid username or password' });
-//         }
-//     } catch (error) {
-//         console.error("Error occurred during login:", error);
-//         res.status(500).json({ msg: 'Internal server error occurred' });
-//     }
-// });
-
 // Admin sign-in endpoint
 router.post('/admin/signin', async (req, res) => {
     try {
@@ -509,7 +464,7 @@ router.post('/login', async (req, res) => {
         user.lastLogin = new Date();
         await user.save(); // Save updated deviceType
 
-        const payload = { userId: user._id, role: user.role, userEmail: user.email, userName: user.username };
+        const payload = { userId: user._id, role: user.role, userEmail: user.email, userName: user.username, firstName: user.firstName, lastName: user.lastName };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.json({ success: true, msg: 'Login successful', user, token });
@@ -959,14 +914,6 @@ router.post('/users/bulk-delete', authenticate, isAdmin, async (req, res) => {
     }
   });
 
-// routes/auth.js or routes/password.js
-// const express = require('express');
-// const crypto = require('crypto');
-// const User = require('../models/User');
-// const sendEmail = require('../utils/sendEmail'); // Your nodemailer utility
-
-// const router = express.Router();
-
 router.post('/request-password-reset', async (req, res) => {
   const { email } = req.body;
   try {
@@ -1006,8 +953,6 @@ router.post('/request-password-reset', async (req, res) => {
     res.status(500).json({ message: 'Server error.' });
   }
 });
-
-
 
 // router.post('/reset-password/:token', async (req, res) => {
 //   const { token } = req.params;
@@ -1066,7 +1011,6 @@ router.post('/reset-password/:token', async (req, res) => {
       res.status(500).json({ message: 'Server error.' });
     }
   });
-  
 
 // async function testHashingAndComparison() {
 //   const password = 'wisdompandovic@';

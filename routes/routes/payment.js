@@ -132,8 +132,7 @@ router.post("/products/payment", async (req, res) => {
       cartItems: cartItems.map(item => ({
         productId: item.productId,
         title: item.title,
-        // image: encodeURIComponent(item.image),
-        image: item.image,
+        image: encodeURIComponent(item.image),
         price: item.price,
         quantity: item.quantity,
         selectedColor: item.selectedColor,
@@ -633,27 +632,55 @@ router.post("/payment/verify-mobile", async (req, res) => {
       }
     }
 
+    // // ✅ 3. Parse cartItems if it's a string
+    // let cartItems = metadata.cartItems;
+
+    // // ✅ Debug: Log cartItems before checking if it's an array
+    // console.log("🛒 Raw cartItems from metadata:", cartItems);
+
+    // if (typeof cartItems === "string") {
+    //   try {
+    //     cartItems = JSON.parse(cartItems);
+    //     console.log("🛒 Parsed cartItems:", cartItems);
+    //   } catch (e) {
+    //     console.error("Failed to parse cartItems:", cartItems);
+    //     return res.status(400).json({ error: "Invalid cartItems format" });
+    //   }
+    // }
+
+    // // ✅ 4. Validate cartItems is an array
+    // if (!Array.isArray(cartItems)) {
+    //   console.error("cartItems is not an array:", cartItems);
+    //   return res.status(400).json({ error: "cartItems must be an array" });
+    // }
+
     // ✅ 3. Parse cartItems if it's a string
     let cartItems = metadata.cartItems;
 
-    // ✅ Debug: Log cartItems before checking if it's an array
-    console.log("🛒 Raw cartItems from metadata:", cartItems);
+    console.log("🛒 Raw cartItems from metadata:", cartItems); // Debug
 
+    // 🔁 Normalize: if it's a string, parse it
     if (typeof cartItems === "string") {
       try {
         cartItems = JSON.parse(cartItems);
-        console.log("🛒 Parsed cartItems:", cartItems);
+        console.log("🛒 Successfully parsed cartItems from string:", cartItems);
       } catch (e) {
-        console.error("Failed to parse cartItems:", cartItems);
+        console.error("❌ Failed to parse cartItems:", e.message, cartItems);
         return res.status(400).json({ error: "Invalid cartItems format" });
       }
     }
 
-    // ✅ 4. Validate cartItems is an array
+    // 🔁 Ensure it's an array
     if (!Array.isArray(cartItems)) {
-      console.error("cartItems is not an array:", cartItems);
+      console.error("❌ cartItems is not an array:", cartItems);
       return res.status(400).json({ error: "cartItems must be an array" });
     }
+
+    // ✅ Sanitize image URLs: trim whitespace
+    cartItems = cartItems.map(item => ({
+      ...item,
+      image: item.image?.trim() // ← Critical: remove spaces
+    }));
 
     const { userId, email, deliveryMethod } = metadata;
 

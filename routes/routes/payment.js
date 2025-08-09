@@ -632,55 +632,43 @@ router.post("/payment/verify-mobile", async (req, res) => {
       }
     }
 
-    // // ✅ 3. Parse cartItems if it's a string
-    // let cartItems = metadata.cartItems;
-
-    // // ✅ Debug: Log cartItems before checking if it's an array
-    // console.log("🛒 Raw cartItems from metadata:", cartItems);
-
-    // if (typeof cartItems === "string") {
-    //   try {
-    //     cartItems = JSON.parse(cartItems);
-    //     console.log("🛒 Parsed cartItems:", cartItems);
-    //   } catch (e) {
-    //     console.error("Failed to parse cartItems:", cartItems);
-    //     return res.status(400).json({ error: "Invalid cartItems format" });
-    //   }
-    // }
-
-    // // ✅ 4. Validate cartItems is an array
-    // if (!Array.isArray(cartItems)) {
-    //   console.error("cartItems is not an array:", cartItems);
-    //   return res.status(400).json({ error: "cartItems must be an array" });
-    // }
-
     // ✅ 3. Parse cartItems if it's a string
     let cartItems = metadata.cartItems;
 
-    console.log("🛒 Raw cartItems from metadata:", cartItems); // Debug
+    // ✅ Debug: Log cartItems before checking if it's an array
+    console.log("🛒 Raw cartItems from metadata:", cartItems);
 
-    // 🔁 Normalize: if it's a string, parse it
     if (typeof cartItems === "string") {
       try {
         cartItems = JSON.parse(cartItems);
-        console.log("🛒 Successfully parsed cartItems from string:", cartItems);
+        console.log("🛒 Parsed cartItems:", cartItems);
       } catch (e) {
-        console.error("❌ Failed to parse cartItems:", e.message, cartItems);
+        console.error("Failed to parse cartItems:", cartItems);
         return res.status(400).json({ error: "Invalid cartItems format" });
       }
     }
 
-    // 🔁 Ensure it's an array
+    // ✅ 4. Validate cartItems is an array
     if (!Array.isArray(cartItems)) {
-      console.error("❌ cartItems is not an array:", cartItems);
+      console.error("cartItems is not an array:", cartItems);
       return res.status(400).json({ error: "cartItems must be an array" });
     }
 
-    // ✅ Sanitize image URLs: trim whitespace
-    cartItems = cartItems.map(item => ({
-      ...item,
-      image: item.image?.trim() // ← Critical: remove spaces
-    }));
+    // 🔹 Fix Firebase image URLs before saving
+    cartItems = cartItems.map(item => {
+      let img = item.image || "";
+
+      // Re-encode /uploads/ to /uploads%2F for Firebase safety
+      if (
+        img.includes("firebasestorage.googleapis.com") &&
+        img.includes("/uploads/") &&
+        !img.includes("%2F")
+      ) {
+        img = img.replace("/uploads/", "/uploads%2F");
+      }
+
+      return { ...item, image: img };
+    });
 
     const { userId, email, deliveryMethod } = metadata;
 
@@ -786,196 +774,6 @@ router.post("/payment/verify-mobile", async (req, res) => {
     res.status(500).json({ error: "Verification failed" });
   }
 });
-
-// router.post("/payment/verify-mobile", async (req, res) => {
-//   const { reference } = req.body;
-
-//   if (!reference) {
-//     return res.status(400).json({ error: "Reference is required" });
-//   }
-
-//   // Helper function to encode Firebase Storage URLs correctly
-//   function encodeFirebaseUrl(url) {
-//     try {
-//       const urlObj = new URL(url);
-//       const pathParts = urlObj.pathname.split('/o/');
-//       if (pathParts.length < 2) return url;
-
-//       const baseUrl = urlObj.origin;
-//       const encodedPath = encodeURIComponent(pathParts[1]);
-//       return `${baseUrl}/o/${encodedPath}${urlObj.search}`;
-//     } catch (err) {
-//       // if invalid URL, return as is
-//       return url;
-//     }
-//   }
-
-//   try {
-//     const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
-//     // 1. Verify payment with Paystack API
-//     const verifyRes = await axios.get(
-//       `https://api.paystack.co/transaction/verify/${reference}`,
-//       {
-//         headers: {
-//           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-//         },
-//       }
-//     );
-
-//     const data = verifyRes.data.data;
-
-//     if (data.status !== "success") {
-//       return res.status(400).json({ error: "Payment not successful" });
-//     }
-
-//     // 2. Parse metadata safely
-//     let metadata = data.metadata;
-//     console.log("✅ Metadata received:", metadata);
-//     console.log("🛒 Raw cartItems:", metadata.cartItems);
-
-//     if (typeof metadata === "string") {
-//       try {
-//         metadata = JSON.parse(metadata);
-//       } catch (e) {
-//         console.error("Failed to parse metadata:", metadata);
-//         return res.status(400).json({ error: "Invalid metadata format" });
-//       }
-//     }
-
-//     // 3. Parse cartItems if string
-//     let cartItems = metadata.cartItems;
-
-//     console.log("🛒 Raw cartItems from metadata:", cartItems);
-
-//     if (typeof cartItems === "string") {
-//       try {
-//         cartItems = JSON.parse(cartItems);
-//         console.log("🛒 Parsed cartItems:", cartItems);
-//       } catch (e) {
-//         console.error("Failed to parse cartItems:", cartItems);
-//         return res.status(400).json({ error: "Invalid cartItems format" });
-//       }
-//     }
-
-//     if (!Array.isArray(cartItems)) {
-//       console.error("cartItems is not an array:", cartItems);
-//       return res.status(400).json({ error: "cartItems must be an array" });
-//     }
-
-//     const { userId, email, deliveryMethod } = metadata;
-
-//     // 4. Update transaction status
-//     await Transaction.findOneAndUpdate(
-//       { reference },
-//       { status: "success", paidAt: new Date() }
-//     );
-
-//     // 5. Encode image URLs inside cartItems before saving order
-//     const encodedCartItems = cartItems.map(item => ({
-//       ...item,
-//       image: encodeFirebaseUrl(item.image),
-//     }));
-
-//     // 6. Create Order (if not exists)
-//     let orderId;
-
-//     const existingOrder = await Order.findOne({ paymentReference: reference });
-//     if (!existingOrder) {
-//       const order = new Order({
-//         userId,
-//         email,
-//         items: encodedCartItems,
-//         deliveryMethod,
-//         address: metadata.address,
-//         phoneNumber: metadata.phoneNumber,
-//         country: metadata.country,
-//         countryCode: metadata.countryCode,
-//         postalCode: metadata.postalCode,
-//         deliveryFee: metadata.deliveryFee || 0,
-//         totalAmount: data.amount / 100,
-//         paymentReference: reference,
-//         status: "paid",
-//       });
-//       const savedOrder = await order.save();
-//       orderId = savedOrder._id;
-//     } else {
-//       orderId = existingOrder._id;
-//     }
-
-//     // 7. Reduce stock (skip pre-order)
-//     for (const item of cartItems) {
-//       if (item.preorder) continue;
-
-//       const product = await Product.findById(item.productId);
-//       if (!product) continue;
-
-//       const colorVariant = product.color.find(c => c.color === item.selectedColor);
-//       if (colorVariant && colorVariant.stock >= item.quantity) {
-//         colorVariant.stock -= item.quantity;
-//         await product.save();
-//       }
-//     }
-
-//     // 8. Notify admin
-//     try {
-//       const user = await User.findById(userId);
-//       const userName = user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
-//       const notification = new Notification({
-//         message: `${userName} just paid for ${cartItems.length} item(s).`,
-//         type: "payment",
-//       });
-//       await notification.save();
-//       console.log('🔔 Admin notification created successfully');
-//     } catch (err) {
-//       console.error('Error creating admin notification:', err);
-//     }
-
-//     // 9. Send confirmation email
-//     const emailSubject = 'Order Confirmation - Camila Aguila';
-//     const isPreOrder = cartItems.every(item => item.preorder === true);
-
-//     const emailHtml = `
-//       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-//         <h2 style="color: #222;">Order Confirmation - Camila Aguila</h2>
-//         <p>Hello,</p>
-//         <p>Thank you for your ${isPreOrder ? "pre-order" : "purchase"}!</p>
-//         <h3>📦 Order Details</h3>
-//         <p><strong>Order Reference:</strong> ${reference}</p>
-//         <p><strong>Email:</strong> ${email}</p>
-//         <p><strong>Delivery Method:</strong> ${deliveryMethod}</p>
-//         ${
-//           deliveryMethod === "delivery"
-//             ? `<p><strong>Address:</strong> ${metadata.address}<br/><strong>Postal Code:</strong> ${metadata.postalCode}<br/><strong>Phone:</strong> ${metadata.phoneNumber}</p>`
-//             : ""
-//         }
-//         <h3>🛍 Items Ordered</h3>
-//         <ul>
-//           ${encodedCartItems
-//             .map(
-//               item =>
-//                 `<li>${item.title} (Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}) - $${item.price}</li>`
-//             )
-//             .join("")}
-//         </ul>
-//         <p><strong>Total Amount:</strong> $${(data.amount / 100).toFixed(2)}</p>
-//         <p style="margin-top: 30px;">Best regards,<br/>Camila Aguila Team</p>
-//       </div>
-//     `;
-
-//     try {
-//       await sendConfirmationEmail(email, emailSubject, emailHtml);
-//       console.log('📧 Confirmation email sent successfully');
-//     } catch (err) {
-//       console.error('Error sending email:', err);
-//     }
-
-//     res.json({ success: true, orderId });
-//   } catch (err) {
-//     console.error("Verification error:", err);
-//     res.status(500).json({ error: "Verification failed" });
-//   }
-// });
 
 router.get('/orders', authenticate, authorizeRoles('admin', 'manager', 'support', 'editor', 'guest'), async (req, res) => {
   try {

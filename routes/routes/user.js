@@ -354,6 +354,22 @@ router.post("/users", async (req, res) => {
             return res.status(400).json({ error: "Email is already registered." });
         }
 
+        const existingUsername = await User.findOne({ username: username });
+        if (existingUsername) {
+            return res.status(400).json({ error: "Username is already taken." });
+        }
+
+        const existingPhone = await User.findOne({ phoneNumber: phoneNumber });
+        if (existingPhone) {
+            return res.status(400).json({ error: "Phone number is already registered." });
+        }
+
+        // Optional: Check if firstName + lastName is unique (depends on your business rule)
+        const existingName = await User.findOne({ firstName, lastName });
+        if (existingName) {
+            return res.status(400).json({ error: "A user with this first and last name already exists." });
+        }
+
         // Password validation
         const passwordRegex = /^(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
         if (!passwordRegex.test(password)) {

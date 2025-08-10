@@ -446,6 +446,51 @@ router.delete("/product/:id", authenticate, isAdmin, async function (req, res) {
 	  res.status(500).json({ message: err.message });
 	}
   });
+
+  // GET /api/product/variant/stock?title=Denin&color=brown
+router.get('/product/variant/stock', async (req, res) => {
+	try {
+	  const { title, color } = req.query;
+  
+	  if (!title || !color) {
+		return res.status(400).json({
+		  error: "Query parameters 'title' and 'color' are required.",
+		});
+	  }
+  
+	  // Find product by title (case-insensitive)
+	  const product = await Product.findOne(
+		{ title: new RegExp(`^${title}$`, "i") } // Case-insensitive exact match
+	  ).lean();
+  
+	  if (!product) {
+		return res.status(404).json({ error: "Product not found." });
+	  }
+  
+	  // Find the specific color variant
+	  const variant = product.color.find(c => 
+		c.color.toLowerCase() === color.toLowerCase()
+	  );
+  
+	  if (!variant) {
+		return res.status(404).json({ 
+		  error: `Color variant '${color}' not available for product '${title}'.` 
+		});
+	  }
+  
+	  // Return stock for this variant
+	  return res.json({
+		title: product.title,
+		color: variant.color,
+		stock: variant.stock,
+		size: product.size, // optionally return available sizes
+	  });
+  
+	} catch (err) {
+	  console.error("Error fetching variant stock:", err);
+	  return res.status(500).json({ error: "Internal server error." });
+	}
+  });
   
 
 module.exports = router;

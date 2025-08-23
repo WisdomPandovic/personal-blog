@@ -346,6 +346,8 @@ router.get('/payment/verify/:reference', async (req, res) => {
       const notification = new Notification({
         message: `${userName} just paid for ${cartItems.length} item(s).`,
         type: "payment",
+        audience: "admin", // 👈 only admin sees this
+        userId
       });
       await notification.save();
       console.log('🔔 Admin notification created');
@@ -725,6 +727,8 @@ router.post("/payment/verify-mobile", async (req, res) => {
       const notification = new Notification({
         message: `${userName} just paid for ${cartItems.length} item(s).`,
         type: "payment",
+        audience: "admin", // 👈 only admin sees this
+        userId
       });
       await notification.save();
       console.log('🔔 Admin notification created successfully');
@@ -1050,46 +1054,7 @@ router.post('/process-return', async (req, res) => {
   }
 });
 
-// Update order status (Admin only)
-// router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
-//   const { orderId } = req.params;
-//   const { status } = req.body;
 
-//   const validStatuses = [
-//     "pending",
-//     "paid",
-//     "processing",
-//     "shipped",
-//     "delivered",
-//     "canceled",
-//     "refund_requested",
-//     "refunded",
-//     "store_credit_issued",
-//     "outForDelivery",
-//     "disputed",
-//     "returned",
-//   ];
-//   if (!validStatuses.includes(status)) {
-//     return res.status(400).json({ message: "Invalid status value." });
-//   }
-
-//   try {
-//     const updatedOrder = await Order.findByIdAndUpdate(
-//       orderId,
-//       { status },
-//       { new: true }
-//     );
-
-//     if (!updatedOrder) {
-//       return res.status(404).json({ message: "Order not found." });
-//     }
-
-//     res.status(200).json({ message: "Order status updated.", order: updatedOrder });
-//   } catch (error) {
-//     console.error("Error updating order status:", error);
-//     res.status(500).json({ message: "Server error." });
-//   }
-// });
 
 router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
   const { orderId } = req.params;
@@ -1114,32 +1079,67 @@ router.patch('/status/:orderId', authenticate, isAdmin, async (req, res) => {
     return res.status(400).json({ message: "Invalid status value." });
   }
 
+  // try {
+  //   const updatedOrder = await Order.findByIdAndUpdate(
+  //     orderId,
+  //     { status },
+  //     { new: true }
+  //   ).populate("userId"); // Ensure user is populated
+
+  //   if (!updatedOrder) {
+  //     return res.status(404).json({ message: "Order not found." });
+  //   }
+
+  //   // 🛎 Create admin notification based on status
+  //   try {
+  //     const user = updatedOrder.user;
+  //     const userName =
+  //       user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
+
+  //     const notificationMessage = `Order ${updatedOrder._id} status changed to '${status}' by admin. (${userName})`;
+
+  //     const newNotification = new Notification({
+  //       message: notificationMessage,
+  //       type: "order", // can use different types per status if needed
+  //     });
+
+  //     await newNotification.save();
+  //     console.log("🔔 Admin notification created successfully");
   try {
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
       { status },
       { new: true }
-    ).populate("userId"); // Ensure user is populated
-
+    ).populate("userId"); // ✅ populated userId
+  
     if (!updatedOrder) {
       return res.status(404).json({ message: "Order not found." });
     }
-
-    // 🛎 Create admin notification based on status
+  
+    // 🛎 Create notifications for both admin and user
     try {
-      const user = updatedOrder.user;
+      const user = updatedOrder.userId; // ✅ correct field
       const userName =
         user?.username || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "A user";
-
-      const notificationMessage = `Order ${updatedOrder._id} status changed to '${status}' by admin. (${userName})`;
-
-      const newNotification = new Notification({
-        message: notificationMessage,
-        type: "order", // can use different types per status if needed
+  
+      // 🔔 Admin notification
+      const adminNotification = new Notification({
+        message: `Order ${updatedOrder._id} status changed to '${status}' by admin. (${userName})`,
+        type: "order",
+        audience: "admin",       // 👈 only admins see this
+        userId: user?._id || null
       });
-
-      await newNotification.save();
-      console.log("🔔 Admin notification created successfully");
+  
+      // 🔔 User notification
+      const userNotification = new Notification({
+        message: `Your order ${updatedOrder._id} status is now '${status}'.`,
+        type: "order",
+        audience: "user",        // 👈 only this user sees it
+        userId: user?._id || null
+      });
+  
+      await Promise.all([adminNotification.save(), userNotification.save()]);
+      console.log("🔔 Notifications created for admin and user");
     } catch (notificationError) {
       console.error("Error creating admin notification:", notificationError);
     }

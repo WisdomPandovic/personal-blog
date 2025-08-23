@@ -10,7 +10,7 @@ const FILE_PATH = `http://localhost:${PORT}/postimage/`;
 // const FILE_PATH = `https://imgurif-api.onrender.com/postimage/`;
 const User = require("../../models/user");
 const Category = require("../../models/category");
-routes/routes/payment.js
+const Notification = require("../../models/notification");
 const express = require('express');
 const router = express.Router();
 

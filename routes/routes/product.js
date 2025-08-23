@@ -10,6 +10,7 @@ const FILE_PATH = `http://localhost:${PORT}/postimage/`;
 // const FILE_PATH = `https://imgurif-api.onrender.com/postimage/`;
 const User = require("../../models/user");
 const Category = require("../../models/category");
+routes/routes/payment.js
 const express = require('express');
 const router = express.Router();
 
@@ -164,6 +165,13 @@ router.post("/product", async function (req, res) {
 
 		// Update category with the new post ID
 		await Category.findByIdAndUpdate(category, { $push: { products: newProduct._id } });
+
+		 // ✅ create a global notification
+		 const notification = new Notification({
+			message: `New product added: ${newProduct.title}`,
+			type: "product",
+		  });
+		  await notification.save();
 
 		res.status(200).json({
 			success: true,

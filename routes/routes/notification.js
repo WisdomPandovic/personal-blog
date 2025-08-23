@@ -3,17 +3,62 @@ const Notification = require('../../models/notification');
 const router = express.Router();
 
 // GET /api/notifications - List notifications (paginated)
+// router.get('/notification', async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+
+//     const notifications = await Notification.find()
+//       .sort({ timestamp: -1 })
+//       .skip((page - 1) * limit)
+//       .limit(limit);
+
+//     const totalNotifications = await Notification.countDocuments();
+
+//     res.json({
+//       success: true,
+//       data: notifications,
+//       total: totalNotifications,
+//       currentPage: page,
+//       totalPages: Math.ceil(totalNotifications / limit),
+//     });
+//   } catch (error) {
+//     console.error('Error fetching notifications:', error);
+//     res.status(500).json({ success: false, error: 'Internal Server Error' });
+//   }
+// });
+
 router.get('/notification', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    const notifications = await Notification.find()
+    // 👇 Assume `req.user` is set by your auth middleware (with { _id, role })
+    const userRole = req.user?.role || "user"; 
+    const userId = req.user?._id;
+
+    let filter = { audience: "all" };
+
+    if (userRole === "admin") {
+      // Admin can see "all" + "admin"
+      filter = { $or: [{ audience: "all" }, { audience: "admin" }] };
+    } else {
+      // Normal user can see "all" + "user" + ones specifically for them
+      filter = { 
+        $or: [
+          { audience: "all" }, 
+          { audience: "user" }, 
+          { userId: userId } 
+        ]
+      };
+    }
+
+    const notifications = await Notification.find(filter)
       .sort({ timestamp: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const totalNotifications = await Notification.countDocuments();
+    const totalNotifications = await Notification.countDocuments(filter);
 
     res.json({
       success: true,
@@ -27,6 +72,7 @@ router.get('/notification', async (req, res) => {
     res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 });
+
 
 // POST /api/notifications - Create a new notification
 router.post('/notification', async (req, res) => {
@@ -48,7 +94,7 @@ router.post('/notification', async (req, res) => {
 });
 
 // DELETE /api/notifications/:id - Delete a notification
-router.delete('/:id', async (req, res) => {
+router.delete('/notification/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -64,5 +110,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 });
+
 
 module.exports = router;

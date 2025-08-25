@@ -3,7 +3,7 @@ const Notification = require('../../models/notification');
 const router = express.Router();
 
 // GET /api/notifications - List notifications (paginated)
-// router.get('/notification', async (req, res) => {
+// router.get('/notifications', async (req, res) => {
 //   try {
 //     const page = parseInt(req.query.page) || 1;
 //     const limit = parseInt(req.query.limit) || 10;
@@ -28,27 +28,105 @@ const router = express.Router();
 //   }
 // });
 
+// router.get('/notification', async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+
+//     const userRole = req.user?.role || "user"; 
+//     const userId = req.user?._id;
+
+//     let filter;
+
+//     if (userRole === "admin") {
+//       // ✅ Admin sees everything
+//       filter = { $or: [{ audience: "all" }, { audience: "admin" }] };
+//     } else {
+//       // ✅ Users should NOT see "payment" notifications where audience=all
+//       filter = {
+//         $or: [
+//           { audience: "user" },
+//           { userId: userId },
+//           { 
+//             audience: "all", 
+//             type: { $ne: "payment" } // 🚫 block payment+all combo
+//           }
+//         ]
+//       };
+//     }
+
+//     const notifications = await Notification.find(filter)
+//       .sort({ timestamp: -1 })
+//       .skip((page - 1) * limit)
+//       .limit(limit);
+
+//     const totalNotifications = await Notification.countDocuments(filter);
+
+//     res.json({
+//       success: true,
+//       data: notifications,
+//       total: totalNotifications,
+//       currentPage: page,
+//       totalPages: Math.ceil(totalNotifications / limit),
+//     });
+//   } catch (error) {
+//     console.error('Error fetching notifications:', error);
+//     res.status(500).json({ success: false, error: 'Internal Server Error' });
+//   }
+// });
+
+
+// ✅ Admin: see ALL notifications
+router.get('/notifications', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const userRole = req.user?.role || "user";
+    if (userRole !== "admin") {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
+    const notifications = await Notification.find()
+      .sort({ timestamp: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const totalNotifications = await Notification.countDocuments();
+
+    res.json({
+      success: true,
+      data: notifications,
+      total: totalNotifications,
+      currentPage: page,
+      totalPages: Math.ceil(totalNotifications / limit),
+    });
+  } catch (error) {
+    console.error("Error fetching admin notifications:", error);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
+
+
+// ✅ User: see only theirs + general "user/all" (excluding payment+all)
 router.get('/notification', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    // 👇 Assume `req.user` is set by your auth middleware (with { _id, role })
-    const userRole = req.user?.role || "user"; 
-    const userId = req.user?._id;
+    const userRole = req.user?.roleName || req.headers["x-user-role"] || "user";
+    const userId = req.user?._id || req.headers["x-user-id"];
 
-    let filter = { audience: "all" };
+    let filter;
 
     if (userRole === "admin") {
-      // Admin can see "all" + "admin"
       filter = { $or: [{ audience: "all" }, { audience: "admin" }] };
     } else {
-      // Normal user can see "all" + "user" + ones specifically for them
-      filter = { 
+      filter = {
         $or: [
-          { audience: "all" }, 
-          { audience: "user" }, 
-          { userId: userId } 
+          { audience: "user" },
+          { userId: userId },
+          { audience: "all", type: { $ne: "payment" } }
         ]
       };
     }
@@ -68,10 +146,13 @@ router.get('/notification', async (req, res) => {
       totalPages: Math.ceil(totalNotifications / limit),
     });
   } catch (error) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({ success: false, error: 'Internal Server Error' });
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
   }
 });
+
+
+
 
 
 // POST /api/notifications - Create a new notification
@@ -110,6 +191,29 @@ router.delete('/notification/:id', async (req, res) => {
     res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 });
+
+// router.post("/admin/fix-notifications", async (req, res) => {
+//   try {
+//     const result = await Notification.updateMany(
+//       { 
+//         type: "payment", 
+//         audience: { $regex: /^all$/i }  // ✅ catches "all", "ALL", " all ", etc
+//       },
+//       { $set: { audience: "admin" } }
+//     );
+//     const sample = await Notification.find({ type: "payment" }).limit(5);
+//     console.log("Sample payment notifications:", sample);
+    
+//     res.json({ 
+//       success: true, 
+//       matched: result.matchedCount, 
+//       updated: result.modifiedCount 
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// });
+
 
 
 module.exports = router;

@@ -480,7 +480,7 @@ router.post('/login', async (req, res) => {
         user.lastLogin = new Date();
         await user.save(); // Save updated deviceType
 
-        const payload = { userId: user._id, role: user.role, userEmail: user.email, userName: user.username, firstName: user.firstName, lastName: user.lastName };
+        const payload = { userId: user._id, role: user.role, roleName: user.roleName,  userEmail: user.email, userName: user.username, firstName: user.firstName, lastName: user.lastName };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.json({ success: true, msg: 'Login successful', user, token });
